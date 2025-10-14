@@ -1,5 +1,7 @@
 # gRPCClient2.jl
 
+[![CI](https://github.com/csvance/gRPCClient2.jl/actions/workflows/ci.yml/badge.svg)](https://github.com/csvance/gRPCClient2.jl/actions/workflows/ci.yml)
+
 gRPCClient2.jl aims to be a production grade gRPC client emphasizing performance and reliability. It borrows some elements from [gRPCClient.jl](https://github.com/JuliaComputing/gRPCClient.jl) and [Downloads.jl](https://github.com/JuliaLang/Downloads.jl) but diverges in that it directly interfaces with a custom libCURL backend specifically tailored for gRPC performance.
 
 ## Usage
