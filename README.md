@@ -35,8 +35,10 @@ Currently the repo is in an rough state but multithreading works without deadloc
 - [x] Define formal interface for sync / async requests
 - [x] Refactor codebase, breaking things down into multiple files
 - [x] Propper handling of gRPC response headers / trailers
-- [ ] Performance analysis (type stability, allocations, multithreading, lock contention) and further optimizations
-- [ ] Write tests
+- [ ] Provide curl error buffer when raising exceptions
+- [x] Performance analysis (type stability, allocations, multithreading, lock contention) and further optimizations
+- [x] Write tests
+- [ ] Run tests with Github actions
 - [x] Write usage basic documentation
 - [ ] Static docs website style full documentation 
 - [ ] Client stub generation in ProtoBuf.jl
