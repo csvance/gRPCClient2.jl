@@ -1,0 +1,368 @@
+const CURL_VERSION_STR = unsafe_string(curl_version())
+let m = match(r"^libcurl/(\d+\.\d+\.\d+)\b", CURL_VERSION_STR)
+    m !== nothing || error("unexpected CURL_VERSION_STR value")
+    curl = m.captures[1]
+    julia = "$(VERSION.major).$(VERSION.minor)"
+    global const CURL_VERSION = VersionNumber(curl)
+    global const USER_AGENT = "curl/$curl julia/$julia"
+end
+
+function write_callback(
+    data   :: Ptr{Cchar},
+    size   :: Csize_t,
+    count  :: Csize_t,
+    req_p :: Ptr{Cvoid},
+)::Csize_t
+    try
+        req = unsafe_pointer_to_objref(req_p)::gRPCRequest
+        n = size * count
+        buf = unsafe_wrap(Array, convert(Ptr{UInt8}, data), (n,))
+        write(req.response, buf)
+        return n
+    catch err
+        @async @error("write_callback: unexpected error", err=err, maxlog=1_000)
+        return typemax(Csize_t)
+    end
+end
+
+function read_callback(
+    data   :: Ptr{Cchar},
+    size   :: Csize_t,
+    count  :: Csize_t,
+    req_p :: Ptr{Cvoid},
+)::Csize_t
+    try
+        req = unsafe_pointer_to_objref(req_p)::gRPCRequest
+        
+        buf_p = pointer(req.request.data) + (req.ptr - 1)
+        n_left = req.request.size - (req.ptr - 1)
+        n = min(size*count, n_left)
+
+        ccall(:memcpy, Ptr{Cvoid}, (Ptr{Cvoid}, Ptr{Cvoid}, Csize_t), data, buf_p, n)
+
+        req.ptr += n
+
+        return n
+    catch err
+        @async @error("read_callback: unexpected error", err=err, maxlog=1_000)
+        return CURL_READFUNC_ABORT
+    end
+end
+
+
+function header_callback(
+    data   :: Ptr{Cchar},
+    size   :: Csize_t,
+    count  :: Csize_t,
+    req_p :: Ptr{Cvoid},
+)::Csize_t
+    try
+        req = unsafe_pointer_to_objref(req_p)::gRPCRequest
+        n = size * count
+        hdr = unsafe_string(data, n)
+        push!(req.headers, hdr)
+        return n
+    catch err
+        @async @error("header_callback: unexpected error", err=err, maxlog=1_000)
+        return typemax(Csize_t)
+    end
+end
+
+
+
+mutable struct gRPCRequest
+    easy :: Ptr{Cvoid}
+    multi :: Ptr{Cvoid}
+    url :: String
+    request :: IOBuffer
+    response :: IOBuffer
+    code :: CURLcode
+    ready :: Event
+    errbuf :: Vector{UInt8}
+    headers :: Vector{String}
+    ptr :: Int64
+
+    function gRPCRequest(grpc, url, request; deadline=10, keepalive=60)
+        easy_handle = curl_easy_init()
+
+        # curl_easy_setopt(easy_handle, CURLOPT_VERBOSE, UInt32(1))
+
+        http_url = replace(url, "grpc://" => "http://")
+        http_url = replace(http_url, "grpcs://" => "https://")
+        
+        curl_easy_setopt(easy_handle, CURLOPT_URL, http_url)
+        curl_easy_setopt(easy_handle, CURLOPT_TIMEOUT, deadline)
+        curl_easy_setopt(easy_handle, CURLOPT_PIPEWAIT, Clong(1))
+        curl_easy_setopt(easy_handle, CURLOPT_POST, Clong(1))
+        curl_easy_setopt(easy_handle, CURLOPT_CUSTOMREQUEST, "POST");
+
+        if startswith(http_url, "http://")
+            curl_easy_setopt(easy_handle, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_2_PRIOR_KNOWLEDGE)
+        elseif startswith(http_url, "https://")
+            curl_easy_setopt(easy_handle, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_2TLS)
+        end
+
+        function grpc_timeout_header_val(timeout::Real)
+            if round(Int, timeout) == timeout
+                timeout_secs = round(Int64, timeout)
+                return "$(timeout_secs)S"
+            end
+            timeout *= 1000
+            if round(Int, timeout) == timeout
+                timeout_millisecs = round(Int64, timeout)
+                return "$(timeout_millisecs)m"
+            end
+            timeout *= 1000
+            if round(Int, timeout) == timeout
+                timeout_microsecs = round(Int64, timeout)
+                return "$(timeout_microsecs)u"
+            end
+            timeout *= 1000
+            timeout_nanosecs = round(Int64, timeout)
+            return "$(timeout_nanosecs)n"
+        end
+
+        headers = C_NULL
+        headers = curl_slist_append(headers, "User-Agent: $(USER_AGENT)")
+        headers = curl_slist_append(headers, "Content-Type: application/grpc+proto")
+        headers = curl_slist_append(headers, "Content-Length:")
+        headers = curl_slist_append(headers, "te: trailers")
+        headers = curl_slist_append(headers, "grpc-timeout: $(grpc_timeout_header_val(deadline))")
+        curl_easy_setopt(easy_handle, CURLOPT_HTTPHEADER, headers)
+
+        curl_easy_setopt(easy_handle, CURLOPT_TCP_KEEPALIVE, Clong(1))
+        curl_easy_setopt(easy_handle, CURLOPT_TCP_KEEPINTVL, keepalive)
+        curl_easy_setopt(easy_handle, CURLOPT_TCP_KEEPIDLE, keepalive)
+        req = new(easy_handle, grpc.multi, http_url, request, IOBuffer(), UInt32(0), Event(), zeros(UInt8, CURL_ERROR_SIZE), Vector{String}(), 1)
+
+        req_p = pointer_from_objref(req)
+        curl_easy_setopt(easy_handle, CURLOPT_PRIVATE, req_p)
+
+        errbuf_p = pointer(req.errbuf)
+        curl_easy_setopt(easy_handle, CURLOPT_ERRORBUFFER, errbuf_p)
+
+        write_cb = @cfunction(write_callback,
+            Csize_t, (Ptr{Cchar}, Csize_t, Csize_t, Ptr{Cvoid}))
+        curl_easy_setopt(easy_handle, CURLOPT_WRITEFUNCTION, write_cb)
+        curl_easy_setopt(easy_handle, CURLOPT_WRITEDATA, req_p)
+
+        read_cb = @cfunction(read_callback,
+            Csize_t, (Ptr{Cchar}, Csize_t, Csize_t, Ptr{Cvoid}))
+        curl_easy_setopt(easy_handle, CURLOPT_READFUNCTION, read_cb)
+        curl_easy_setopt(easy_handle, CURLOPT_READDATA, req_p)
+
+        # set header callback
+        header_cb = @cfunction(header_callback,
+            Csize_t, (Ptr{Cchar}, Csize_t, Csize_t, Ptr{Cvoid}))
+
+
+        curl_easy_setopt(easy_handle, CURLOPT_HEADERFUNCTION, header_cb)
+        curl_easy_setopt(easy_handle, CURLOPT_HEADERDATA, req_p)
+        curl_easy_setopt(easy_handle, CURLOPT_UPLOAD, true)
+
+
+        lock(grpc.lock) do
+            curl_multi_add_handle(grpc.multi, easy_handle)
+        end
+
+        return req
+    end
+end
+
+
+wait(req::gRPCRequest) = wait(req.ready)
+reset(req::gRPCRequest) = reset(req.ready)
+
+
+
+function timer_callback(
+    multi_h    :: Ptr{Cvoid},
+    timeout_ms :: Clong,
+    grpc_p     :: Ptr{Cvoid},
+)::Cint
+    try
+        grpc = unsafe_pointer_to_objref(grpc_p)::gRPCCURL
+        @assert multi_h == grpc.multi
+        stoptimer!(grpc)
+        if timeout_ms >= 0
+            grpc.timer = Timer(timeout_ms/1000) do timer
+                lock(grpc.lock) do
+                    grpc.timer === timer || return
+                    grpc.timer = nothing
+                    curl_multi_socket_action(grpc.multi, CURL_SOCKET_TIMEOUT, 0, Ref{Cint}())
+                    check_multi_info(grpc)
+                end
+            end
+        elseif timeout_ms != -1
+            @async @error("timer_callback: invalid timeout value", timeout_ms, maxlog=1_000)
+            return -1
+        end
+        return 0
+    catch err
+        @async @error("timer_callback: unexpected error", err=err, maxlog=1_000)
+        return -1
+    end
+end
+
+
+mutable struct CURLWatcher
+    sock :: curl_socket_t
+    fdw :: FDWatcher
+    ready :: Event
+    run :: Bool 
+
+    CURLWatcher(sock, fdw) = new(sock, fdw, Event(), true)
+end
+
+isreadable(w::CURLWatcher) = w.fdw.readable
+iswritable(w::CURLWatcher) = w.fdw.writable
+
+const WATCHERS = Dict{curl_socket_t, CURLWatcher}()
+
+function socket_callback(
+    easy_h    :: Ptr{Cvoid},
+    sock      :: curl_socket_t,
+    action    :: Cint,
+    grpc_p   :: Ptr{Cvoid},
+    socket_p :: Ptr{Cvoid},
+)::Cint
+    try
+        if action ∉ (CURL_POLL_IN, CURL_POLL_OUT, CURL_POLL_INOUT, CURL_POLL_REMOVE)
+            @async @error("socket_callback: unexpected action", action, maxlog=1_000)
+            return -1
+        end
+
+        grpc = unsafe_pointer_to_objref(grpc_p)::gRPCCURL
+
+        if action in (CURL_POLL_IN, CURL_POLL_OUT, CURL_POLL_INOUT)
+            readable = action in (CURL_POLL_IN,  CURL_POLL_INOUT)
+            writable = action in (CURL_POLL_OUT, CURL_POLL_INOUT)
+
+            watcher = nothing
+            if sock in keys(WATCHERS)
+
+                # We already have a watcher for this sock
+                watcher = WATCHERS[sock]
+
+                # Check if the watch flags are changing
+                watch_change = isreadable(watcher) != readable || iswritable(watcher) == writable
+
+                if watch_change 
+                    # Reset the ready event and trigger an EOFError
+                    reset(watcher.ready)
+                    close(watcher.fdw)
+
+                    # Update the FDWatcher with the new flags
+                    watcher.fdw = FDWatcher(OS_HANDLE(sock), readable, writable)
+
+                    # Start waiting on the socket with the new flags
+                    notify(watcher.ready)
+                end
+
+                return 0
+            end
+
+            # Don't have a watcher, create one and start a task 
+            watcher = CURLWatcher(sock, FDWatcher(OS_HANDLE(sock), readable, writable))
+            WATCHERS[sock] = watcher
+
+            task = @async while watcher.run
+
+                wait(watcher.ready)
+
+                events = try
+                    wait(watcher.fdw)
+                catch err
+                    err isa EOFError && continue
+                    err isa Base.IOError || rethrow()
+                    FileWatching.FDEvent()
+                end
+                flags = CURL_CSELECT_IN  * isreadable(events) +
+                        CURL_CSELECT_OUT * iswritable(events) +
+                        CURL_CSELECT_ERR * (events.disconnect || events.timedout)
+
+                lock(grpc.lock) do 
+                    curl_multi_socket_action(grpc.multi, sock, flags, Ref{Cint}())
+                    check_multi_info(grpc)
+                end
+            end
+            @isdefined(errormonitor) && errormonitor(task)
+        else
+            # Clean up the watcher for this socket
+            watcher = WATCHERS[sock]
+            watcher.run = false
+            close(watcher.fdw)
+            delete!(WATCHERS, sock)
+
+            task = @async begin 
+                lock(grpc.lock) do
+                    check_multi_info(grpc)
+                end
+            end
+            @isdefined(errormonitor) && errormonitor(task)
+        end
+
+        return 0
+    catch err
+        @async @error("socket_callback: unexpected error", err=err, maxlog=1_000)
+        return -1
+    end
+end
+
+
+mutable struct gRPCCURL
+    multi :: Ptr{Cvoid}
+    lock :: ReentrantLock
+    timer :: Union{Nothing, Timer}
+    run :: Bool
+
+    function gRPCCURL()
+        grpc = new(curl_multi_init(), ReentrantLock(), nothing, true)
+        grpc_p = pointer_from_objref(grpc)
+
+        timer_cb = @cfunction(timer_callback, Cint, (Ptr{Cvoid}, Clong, Ptr{Cvoid}))
+        curl_multi_setopt(grpc.multi, CURLMOPT_TIMERFUNCTION, timer_cb)
+        curl_multi_setopt(grpc.multi, CURLMOPT_TIMERDATA, grpc_p)
+
+        socket_cb = @cfunction(socket_callback, Cint, (Ptr{Cvoid}, curl_socket_t, Cint, Ptr{Cvoid}, Ptr{Cvoid}))
+        curl_multi_setopt(grpc.multi, CURLMOPT_SOCKETFUNCTION, socket_cb)
+        curl_multi_setopt(grpc.multi, CURLMOPT_SOCKETDATA, grpc_p)
+
+        return grpc
+    end
+end
+
+struct CURLMsg
+   msg  :: CURLMSG
+   easy :: Ptr{Cvoid}
+   code :: CURLcode
+end
+
+function check_multi_info(grpc::gRPCCURL)
+    while true
+        p = curl_multi_info_read(grpc.multi, Ref{Cint}())
+        p == C_NULL && return
+        message = unsafe_load(convert(Ptr{CURLMsg}, p))
+        if message.msg == CURLMSG_DONE
+            easy_handle = message.easy
+            req_p_ref = Ref{Ptr{Cvoid}}()
+            curl_easy_getinfo(easy_handle, CURLINFO_PRIVATE, req_p_ref)
+            request = unsafe_pointer_to_objref(req_p_ref[])::gRPCRequest
+            @assert easy_handle == request.easy
+            request.code = message.code
+            notify(request.ready)
+        else
+            @async @error("curl_multi_info_read: unknown message", message, maxlog=1_000)
+        end
+    end
+end
+
+
+function stoptimer!(grpc::gRPCCURL)
+    t = grpc.timer
+    if t !== nothing
+        grpc.timer = nothing
+        close(t)
+    end
+    nothing
+end
