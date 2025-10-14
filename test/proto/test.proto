@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+
+package test;
+
+
+service TestService {
+  rpc TestRPC(TestRequest) returns (TestResponse) {}
+
+}
+
+message TestRequest {
+  uint64 test_response_sz = 1;
+  repeated uint64 data = 2;
+
+}
+
+message TestResponse {
+  repeated uint64 data = 1;
+}
