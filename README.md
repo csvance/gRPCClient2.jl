@@ -38,10 +38,11 @@ Currently the repo is in an rough state but multithreading works without deadloc
 - [ ] Provide curl error buffer when raising exceptions
 - [x] Performance analysis (type stability, allocations, multithreading, lock contention) and further optimizations
 - [x] Write tests
-- [ ] Run tests with Github actions
+- [x] Run tests with Github actions
 - [x] Write usage basic documentation
-- [ ] Static docs website style full documentation 
 - [ ] Client stub generation in ProtoBuf.jl
+- [ ] Benchmark scripts (compare vs other gRPC client implementations)
+- [ ] Static docs website style full documentation 
 - [ ] Support compression
 - [ ] Add support for streaming RPC
 
