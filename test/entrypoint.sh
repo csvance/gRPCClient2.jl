@@ -10,7 +10,7 @@ popd
 
 pushd /test
 
-julia --project=.<<EOF
+julia -t auto --project=.<<EOF
 
 using Pkg
 Pkg.instantiate()
