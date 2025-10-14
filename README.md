@@ -35,8 +35,10 @@ Currently the repo is in an rough state but multithreading works without deadloc
 - [ ] Propper handling of gRPC response headers / trailers
 - [ ] Performance analysis (type stability, allocations, multithreading, lock contention) and further optimizations
 - [ ] Write tests
-- [ ] Write usage basic documentation
+- [x] Write usage basic documentation
+- [ ] Static docs website style full documentation 
 - [ ] Client stub generation in ProtoBuf.jl
+- [ ] Support compression
 - [ ] Add support for streaming RPC
 
 Support is eventually planned for streaming RPC but its not a priority. Pull requests for this will be accepted only if it does not impact unary RPC performance at all.
