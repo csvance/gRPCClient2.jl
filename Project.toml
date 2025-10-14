@@ -1,0 +1,14 @@
+name = "gRPCClient2"
+uuid = "b7a07a73-68ea-4538-9481-8488798afd91"
+version = "0.1.1"
+authors = ["Carroll Vance <cs.vance@icloud.com>"]
+
+[deps]
+FileWatching = "7b1f6079-737a-58dc-b8bc-7a2ca5c1b5ee"
+LibCURL = "b27032c2-a3e7-50c8-80cd-2d36dbcbfd21"
+ProtoBuf = "3349acd9-ac6a-5e09-bcdb-63829b23a429"
+
+[compat]
+FileWatching = "1.11.0"
+LibCURL = "0.6.4"
+ProtoBuf = "1.2.0"
