@@ -211,7 +211,12 @@ mutable struct CURLWatcher
     ready :: Event
     run :: Bool 
 
-    CURLWatcher(sock, fdw) = new(sock, fdw, Event(), true)
+
+    function CURLWatcher(sock, fdw) 
+        event = Event()
+        notify(event)
+        new(sock, fdw, event, true)
+    end
 end
 
 isreadable(w::CURLWatcher) = w.fdw.readable
@@ -244,9 +249,7 @@ function socket_callback(
                 watcher = grpc.watchers[sock]
 
                 # Check if the watch flags are changing
-                watch_change = isreadable(watcher) != readable || iswritable(watcher) == writable
-
-                if watch_change 
+                if isreadable(watcher) != readable || iswritable(watcher) == writable 
                     # Reset the ready event and trigger an EOFError
                     reset(watcher.ready)
                     close(watcher.fdw)
@@ -266,7 +269,7 @@ function socket_callback(
             grpc.watchers[sock] = watcher
 
             task = @async while watcher.run
-
+                # Watcher configuration might be changed, wait until its safe to wait on the watcher
                 wait(watcher.ready)
 
                 events = try
@@ -347,10 +350,12 @@ function check_multi_info(grpc::gRPCCURL)
             easy_handle = message.easy
             req_p_ref = Ref{Ptr{Cvoid}}()
             curl_easy_getinfo(easy_handle, CURLINFO_PRIVATE, req_p_ref)
-            request = unsafe_pointer_to_objref(req_p_ref[])::gRPCRequest
-            @assert easy_handle == request.easy
-            request.code = message.code
-            notify(request.ready)
+            req = unsafe_pointer_to_objref(req_p_ref[])::gRPCRequest
+            @assert easy_handle == req.easy
+            req.code = message.code
+            # Removing the handle here helps with lock contention
+            curl_multi_remove_handle(req.multi, req.easy)
+            notify(req.ready)
         else
             @async @error("curl_multi_info_read: unknown message", message, maxlog=1_000)
         end

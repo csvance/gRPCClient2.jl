@@ -34,7 +34,7 @@ Currently the repo is in an rough state but multithreading works without deadloc
 
 - [x] Define formal interface for sync / async requests
 - [x] Refactor codebase, breaking things down into multiple files
-- [ ] Propper handling of gRPC response headers / trailers
+- [x] Propper handling of gRPC response headers / trailers
 - [ ] Performance analysis (type stability, allocations, multithreading, lock contention) and further optimizations
 - [ ] Write tests
 - [x] Write usage basic documentation

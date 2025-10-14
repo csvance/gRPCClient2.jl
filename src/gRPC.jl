@@ -39,27 +39,37 @@ function grpc_unary_async_request(grpc, url, request; deadline=10, keepalive=60)
 end
 
 function grpc_unary_async_await(grpc, req, TResponse)
-    try
-        wait(req)
+    wait(req)
 
-        req.code == CURLE_OPERATION_TIMEDOUT && throw(gRPCServiceCallException(DEADLINE_EXCEEDED, "Deadline exceeded."))
-        req.code != CURLE_OK && throw(gRPCServiceCallException(GRPC_INTERNAL, "libCURL returned easy request code $(req.code)"))
+    req.code == CURLE_OPERATION_TIMEDOUT && throw(gRPCServiceCallException(GRPC_DEADLINE_EXCEEDED, "Deadline exceeded."))
+    req.code != CURLE_OK && throw(gRPCServiceCallException(GRPC_INTERNAL, "libCURL returned easy request code $(req.code)"))
 
-        seek(req.response, 0)
+    grpc_status = GRPC_OK 
+    grpc_message = ""
 
-        is_compressed = read(req.response, UInt8) > 0
-        # TODO: raise some sort of "NotImplementedException" if compressed is set
-        length_prefix = ntoh(read(req.response, UInt32))
-        # TODO: validate length 
+    reg_grpc_status = r"grpc-status: ([0-9]+)"
+    reg_grpc_message = Regex("grpc-message: (.*)", "s")
 
-        return decode(ProtoDecoder(req.response), TResponse)
-    catch ex 
-        @error ex
-    finally
-        lock(grpc.lock) do
-            curl_multi_remove_handle(req.multi, req.easy)
+    for header in req.headers 
+        header = strip(header)
+        
+        if (m_grpc_status = match(reg_grpc_status, header)) !== nothing
+            grpc_status = parse(UInt64, m_grpc_status.captures[1])
+        elseif (m_grpc_message = match(reg_grpc_message, header)) !== nothing
+            grpc_message = m_grpc_message.captures[1]
         end
     end
+
+    grpc_status != GRPC_OK && throw(gRPCServiceCallException(grpc_status, grpc_message))
+
+    seek(req.response, 0)
+
+    is_compressed = read(req.response, UInt8) > 0
+    # TODO: raise some sort of "NotImplementedException" if compressed is set
+    length_prefix = ntoh(read(req.response, UInt32))
+    # TODO: validate length 
+
+    return decode(ProtoDecoder(req.response), TResponse)
 end
 
 
@@ -68,5 +78,5 @@ function grpc_unary_sync(grpc, url, request, TResponse; deadline=10, keepalive=6
         grpc, 
         grpc_unary_async_request(grpc, url, request; deadline=deadline, keepalive=keepalive),
         TResponse
-    )
+    ) 
 end
