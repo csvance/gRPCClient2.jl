@@ -289,41 +289,42 @@ function socket_callback(
             watcher = CURLWatcher(sock, FDWatcher(OS_HANDLE(sock), readable, writable))
             grpc.watchers[sock] = watcher
 
-            task = @async while watcher.run
-                # Watcher configuration might be changed, wait until its safe to wait on the watcher
-                wait(watcher.ready)
+            task = @async begin 
+                while watcher.run
+                    # Watcher configuration might be changed, wait until its safe to wait on the watcher
+                    wait(watcher.ready)
 
-                events = try
-                    wait(watcher.fdw)
-                catch err
-                    err isa EOFError && continue
-                    err isa Base.IOError || rethrow()
-                    FileWatching.FDEvent()
+                    events = try
+                        wait(watcher.fdw)
+                    catch err
+                        err isa EOFError && continue
+                        err isa Base.IOError || rethrow()
+                        FileWatching.FDEvent()
+                    end
+                    flags =
+                        CURL_CSELECT_IN * isreadable(events) +
+                        CURL_CSELECT_OUT * iswritable(events) +
+                        CURL_CSELECT_ERR * (events.disconnect || events.timedout)
+
+                    lock(grpc.lock) do
+                        curl_multi_socket_action(grpc.multi, sock, flags, Ref{Cint}())
+                        check_multi_info(grpc)
+                    end
                 end
-                flags =
-                    CURL_CSELECT_IN * isreadable(events) +
-                    CURL_CSELECT_OUT * iswritable(events) +
-                    CURL_CSELECT_ERR * (events.disconnect || events.timedout)
 
+                # When we shut down the watcher do the check_multi_info in this task to avoid creating a new one
                 lock(grpc.lock) do
-                    curl_multi_socket_action(grpc.multi, sock, flags, Ref{Cint}())
                     check_multi_info(grpc)
                 end
             end
             @isdefined(errormonitor) && errormonitor(task)
         else
-            # Clean up the watcher for this socket
+            # Shut down and cleanup the watcher for this socket
             watcher = grpc.watchers[sock]
             watcher.run = false
+            notify(watcher.ready)
             close(watcher.fdw)
             delete!(grpc.watchers, sock)
-
-            task = @async begin
-                lock(grpc.lock) do
-                    check_multi_info(grpc)
-                end
-            end
-            @isdefined(errormonitor) && errormonitor(task)
         end
 
         return 0
