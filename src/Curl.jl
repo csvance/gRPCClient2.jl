@@ -33,7 +33,7 @@ function read_callback(
 )::Csize_t
     try
         req = unsafe_pointer_to_objref(req_p)::gRPCRequest
-        
+
         buf_p = pointer(req.request.data) + (req.ptr - 1)
         n_left = req.request.size - (req.ptr - 1)
         n = min(size*count, n_left)
@@ -217,7 +217,6 @@ end
 isreadable(w::CURLWatcher) = w.fdw.readable
 iswritable(w::CURLWatcher) = w.fdw.writable
 
-const WATCHERS = Dict{curl_socket_t, CURLWatcher}()
 
 function socket_callback(
     easy_h    :: Ptr{Cvoid},
@@ -239,10 +238,10 @@ function socket_callback(
             writable = action in (CURL_POLL_OUT, CURL_POLL_INOUT)
 
             watcher = nothing
-            if sock in keys(WATCHERS)
+            if sock in keys(grpc.watchers)
 
                 # We already have a watcher for this sock
-                watcher = WATCHERS[sock]
+                watcher = grpc.watchers[sock]
 
                 # Check if the watch flags are changing
                 watch_change = isreadable(watcher) != readable || iswritable(watcher) == writable
@@ -264,7 +263,7 @@ function socket_callback(
 
             # Don't have a watcher, create one and start a task 
             watcher = CURLWatcher(sock, FDWatcher(OS_HANDLE(sock), readable, writable))
-            WATCHERS[sock] = watcher
+            grpc.watchers[sock] = watcher
 
             task = @async while watcher.run
 
@@ -289,10 +288,10 @@ function socket_callback(
             @isdefined(errormonitor) && errormonitor(task)
         else
             # Clean up the watcher for this socket
-            watcher = WATCHERS[sock]
+            watcher = grpc.watchers[sock]
             watcher.run = false
             close(watcher.fdw)
-            delete!(WATCHERS, sock)
+            delete!(grpc.watchers, sock)
 
             task = @async begin 
                 lock(grpc.lock) do
@@ -315,9 +314,10 @@ mutable struct gRPCCURL
     lock :: ReentrantLock
     timer :: Union{Nothing, Timer}
     run :: Bool
+    watchers :: Dict{curl_socket_t, CURLWatcher}
 
     function gRPCCURL()
-        grpc = new(curl_multi_init(), ReentrantLock(), nothing, true)
+        grpc = new(curl_multi_init(), ReentrantLock(), nothing, true, Dict{curl_socket_t, CURLWatcher}())
         grpc_p = pointer_from_objref(grpc)
 
         timer_cb = @cfunction(timer_callback, Cint, (Ptr{Cvoid}, Clong, Ptr{Cvoid}))
