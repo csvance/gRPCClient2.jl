@@ -1,21 +1,21 @@
-GRPC_OK	= 0
+GRPC_OK = 0
 GRPC_CANCELLED = 1
 GRPC_UNKNOWN = 2
 GRPC_INVALID_ARGUMENT = 3
 GRPC_DEADLINE_EXCEEDED = 4
 GRPC_NOT_FOUND = 5
-GRPC_ALREADY_EXISTS = 6	
-GRPC_PERMISSION_DENIED = 7	
+GRPC_ALREADY_EXISTS = 6
+GRPC_PERMISSION_DENIED = 7
 GRPC_RESOURCE_EXHAUSTED = 8
-GRPC_FAILED_PRECONDITION = 9	
-GRPC_ABORTED = 10	
+GRPC_FAILED_PRECONDITION = 9
+GRPC_ABORTED = 10
 GRPC_INTERNAL = 13
 GRPC_UNAVAILABLE = 14
 GRPC_DATA_LOSS = 15
 GRPC_UNAUTHENTICATED = 16
 
 
-function grpc_unary_async_request(grpc, url, request; deadline=10, keepalive=60)
+function grpc_unary_async_request(grpc, url, request; deadline = 10, keepalive = 60)
     # Create single buffer that contains the post data for the gRPC request
     req_buf = IOBuffer()
 
@@ -33,26 +33,32 @@ function grpc_unary_async_request(grpc, url, request; deadline=10, keepalive=60)
 
     # Seek to start before initializing the request
     seek(req_buf, 0)
-    
+
     # Create the request and register it with the libCURL multi handle in grpc
-    gRPCRequest(grpc, url, req_buf; deadline=deadline, keepalive=keepalive)
+    gRPCRequest(grpc, url, req_buf; deadline = deadline, keepalive = keepalive)
 end
 
 function grpc_unary_async_await(grpc, req, TResponse)
     wait(req)
 
-    req.code == CURLE_OPERATION_TIMEDOUT && throw(gRPCServiceCallException(GRPC_DEADLINE_EXCEEDED, "Deadline exceeded."))
-    req.code != CURLE_OK && throw(gRPCServiceCallException(GRPC_INTERNAL, "libCURL returned easy request code $(req.code)"))
+    req.code == CURLE_OPERATION_TIMEDOUT &&
+        throw(gRPCServiceCallException(GRPC_DEADLINE_EXCEEDED, "Deadline exceeded."))
+    req.code != CURLE_OK && throw(
+        gRPCServiceCallException(
+            GRPC_INTERNAL,
+            "libCURL returned easy request code $(req.code)",
+        ),
+    )
 
-    grpc_status = GRPC_OK 
+    grpc_status = GRPC_OK
     grpc_message = ""
 
     reg_grpc_status = r"grpc-status: ([0-9]+)"
     reg_grpc_message = Regex("grpc-message: (.*)", "s")
 
-    for header in req.headers 
+    for header in req.headers
         header = strip(header)
-        
+
         if (m_grpc_status = match(reg_grpc_status, header)) !== nothing
             grpc_status = parse(UInt64, m_grpc_status.captures[1])
         elseif (m_grpc_message = match(reg_grpc_message, header)) !== nothing
@@ -73,10 +79,16 @@ function grpc_unary_async_await(grpc, req, TResponse)
 end
 
 
-function grpc_unary_sync(grpc, url, request, TResponse; deadline=10, keepalive=60)
+function grpc_unary_sync(grpc, url, request, TResponse; deadline = 10, keepalive = 60)
     grpc_unary_async_await(
-        grpc, 
-        grpc_unary_async_request(grpc, url, request; deadline=deadline, keepalive=keepalive),
-        TResponse
-    ) 
+        grpc,
+        grpc_unary_async_request(
+            grpc,
+            url,
+            request;
+            deadline = deadline,
+            keepalive = keepalive,
+        ),
+        TResponse,
+    )
 end
