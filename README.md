@@ -13,10 +13,12 @@ const grpc = gRPCCURL()
 test_response = grpc_unary_sync(grpc, "grpc://localhost:50051/test.TestService/TestRPC", TestRequest(1), TestResponse)
 
 # Async
-requests = Vector{TestRequest}()
+requests = Vector{gRPCRequest}()
 for i in 1:10
-    request::gRPCRequest = grpc_unary_async_request(grpc, "grpc://localhost:50051/test.TestService/TestRPC", TestRequest(1))
-    push!(requests, request)
+    push!(
+        requests, 
+        grpc_unary_async_request(grpc, "grpc://localhost:50051/test.TestService/TestRPC", TestRequest(1))
+    )
 end
 
 for request in requests
