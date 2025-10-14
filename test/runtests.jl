@@ -22,7 +22,7 @@ include("gen/test/test_pb.jl")
             @test length(response.data) == i
 
             for (di, dv) in enumerate(response.data)
-                @test mod(di, 255) == dv
+                @test di == dv
             end
         end
     end
@@ -66,7 +66,7 @@ include("gen/test/test_pb.jl")
         for (i, response) in enumerate(responses)
             @test length(response.data) == i
             for (di, dv) in enumerate(response.data)
-                @test mod(di, 255) == dv
+                @test di == dv
             end
         end
     end

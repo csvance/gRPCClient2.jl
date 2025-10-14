@@ -2,17 +2,15 @@
 from concurrent import futures
 import logging
 
+import numpy as np
 import grpc
 import test_pb2
 import test_pb2_grpc
 
 class TestServiceServicer(test_pb2_grpc.TestServiceServicer):
-    """Provides methods that implement functionality of route guide server."""
-
     def TestRPC(self, request: test_pb2.TestRequest, context):
-        response_data = bytearray(request.test_response_sz)
-        for i in range(len(response_data)):
-            response_data[i] = (i + 1) % 255
+        response_data = np.arange(request.test_response_sz, dtype=np.uint64)
+        response_data[:] += 1
 
         return test_pb2.TestResponse(data=response_data)
 
