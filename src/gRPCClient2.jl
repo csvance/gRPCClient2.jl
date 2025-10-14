@@ -18,6 +18,11 @@ end
 include("Curl.jl")
 include("gRPC.jl")
 
+export grpc_unary_async_request
+export grpc_unary_async_await
+export grpc_unary_sync
 
+export gRPCCURL
+export gRPCRequest
 
 end 

@@ -15,7 +15,7 @@ GRPC_DATA_LOSS = 15
 GRPC_UNAUTHENTICATED = 16
 
 
-function grpc_unary(grpc, url, request, TResponse; deadline=10, keepalive=60)
+function grpc_unary_async_request(grpc, url, request; deadline=10, keepalive=60)
     # Create single buffer that contains the post data for the gRPC request
     req_buf = IOBuffer()
 
@@ -35,12 +35,14 @@ function grpc_unary(grpc, url, request, TResponse; deadline=10, keepalive=60)
     seek(req_buf, 0)
     
     # Create the request and register it with the libCURL multi handle in grpc
-    req = gRPCRequest(grpc, url, req_buf; deadline=deadline, keepalive=keepalive)
+    gRPCRequest(grpc, url, req_buf; deadline=deadline, keepalive=keepalive)
+end
 
+function grpc_unary_async_await(grpc, req, TResponse)
     try
         wait(req)
 
-        req.code == CURLE_OPERATION_TIMEDOUT && throw(gRPCServiceCallException(DEADLINE_EXCEEDED, "Deadline exceeded"))
+        req.code == CURLE_OPERATION_TIMEDOUT && throw(gRPCServiceCallException(DEADLINE_EXCEEDED, "Deadline exceeded."))
         req.code != CURLE_OK && throw(gRPCServiceCallException(GRPC_INTERNAL, "libCURL returned easy request code $(req.code)"))
 
         seek(req.response, 0)
@@ -58,4 +60,13 @@ function grpc_unary(grpc, url, request, TResponse; deadline=10, keepalive=60)
             curl_multi_remove_handle(req.multi, req.easy)
         end
     end
+end
+
+
+function grpc_unary_sync(grpc, url, request, TResponse; deadline=10, keepalive=60)
+    grpc_unary_async_await(
+        grpc, 
+        grpc_unary_async_request(grpc, url, request; deadline=deadline, keepalive=keepalive),
+        TResponse
+    )
 end
