@@ -72,4 +72,14 @@ include("gen/test/test_pb.jl")
         end
     end
 
+    @testset "Max Message Size" begin 
+        # Create a client with much more restictive max message lengths
+        client_ms = TestService_TestRPC_Client("localhost", 8001; max_send_message_length=1024, max_recieve_message_length=1024)
+
+        # Send too much 
+        @test_throws gRPCServiceCallException grpc_unary_sync(client_ms, TestRequest(1, zeros(UInt64, 1024)))
+        # Receive too much
+        @test_throws gRPCServiceCallException grpc_unary_sync(client_ms, TestRequest(1024, zeros(UInt64, 1)))
+    end
+
 end

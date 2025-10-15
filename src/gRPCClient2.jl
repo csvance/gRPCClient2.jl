@@ -40,4 +40,7 @@ export gRPCClient
 export open
 export close
 
+export gRPCException
+export gRPCServiceCallException
+
 end

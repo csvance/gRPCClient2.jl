@@ -21,11 +21,11 @@ function write_callback(
         n = size * count
         size_after_write = req.response.size + n
 
-        if size_after_write - GRPC_HEADER_SIZE > req.max_recieve_message_length
+        if size_after_write > req.max_recieve_message_length + GRPC_HEADER_SIZE
             # This will be thrown by the thread waiting on the request to finish
             req.ex = gRPCServiceCallException(
                 GRPC_RESOURCE_EXHAUSTED, 
-                "effective response message size larger than max_recieve_message_length: $(size_after_write - GRPC_HEADER_SIZE) > $(req.max_recieve_message_length)"
+                "effective response message size larger than max_recieve_message_length: $(size_after_write) > $(req.max_recieve_message_length + GRPC_HEADER_SIZE)"
             )
             # Returning anything other than n causes curl to abort this connection
             return typemax(Csize_t)
@@ -536,12 +536,12 @@ function check_multi_info(grpc::gRPCCURL)
             @assert easy_handle == req.easy
             req.code = message.code
 
-            # Removing the handle here helps with lock contention
+            # Doing the cleanup here helps with lock contention
             curl_multi_remove_handle(req.multi, req.easy)
             curl_easy_cleanup(req.easy)
+
             grpc.requests = filter(x -> x !== req, grpc.requests)
             notify(req.ready)
-
         else
             @async @error("curl_multi_info_read: unknown message", message, maxlog = 1_000)
         end
