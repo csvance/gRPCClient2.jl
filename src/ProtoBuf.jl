@@ -1,4 +1,3 @@
-
 #=
 function codegen(io, t::ServiceType, ctx::Context)
     namespace = join(ctx.proto_file.preamble.namespace, ".")
@@ -23,8 +22,20 @@ function codegen(io, t::ServiceType, ctx::Context)
         if rpc.response_type.package_namespace !== nothing 
             response_type = join([rpc.package_namespace, response_type], ".")
         end
-
-        println(io, "$(service_name)_$(rpc.name)_Client(host, port; secure=false, grpc=grpc_global_handle(), deadline=10, keepalive=60) = gRPCClient{$request_type, $response_type}(host, port, \"$rpc_path\"; grpc=grpc, secure=secure, deadline=deadline, keepalive=keepalive)")
+        
+        println(io, "$(service_name)_$(rpc.name)_Client(")
+        println(io, "\thost, port;")
+        println(io, "\tsecure=false,")
+        println(io, "\tgrpc=grpc_global_handle(),")
+        println(io, "\tdeadline=10,")
+        println(io, "\tkeepalive=60,")
+        println(io, ") = gRPCClient{$request_type, $response_type}(")
+        println(io, "\thost, port, \"$rpc_path\";")
+        println(io, "\tsecure=secure,")
+        println(io, "\tgrpc=grpc,")
+        println(io, "\tdeadline=deadline,")
+        println(io, "\tkeepalive=keepalive,")
+        println(io, ")")
     end
 end
 =#
