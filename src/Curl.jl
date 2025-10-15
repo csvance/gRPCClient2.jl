@@ -327,7 +327,7 @@ function socket_callback(
                 end
 
                 # If the multi handle was shutdown, return without doing any operations on it
-                grpc.running && return 
+                !grpc.running && return 
 
                 # When we shut down the watcher do the check_multi_info in this task to avoid creating a new one
                 lock(grpc.lock) do
