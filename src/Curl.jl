@@ -179,7 +179,11 @@ mutable struct gRPCRequest
         lock(grpc.lock) do
             if !grpc.running
                 curl_easy_cleanup(easy_handle)
-                throw(ErrorException("Tried to make a request when the provided grpc handle is shutdown"))
+                throw(
+                    ErrorException(
+                        "Tried to make a request when the provided grpc handle is shutdown",
+                    ),
+                )
             end
 
             push!(grpc.requests, req)
@@ -302,7 +306,7 @@ function socket_callback(
             watcher = CURLWatcher(sock, FDWatcher(OS_HANDLE(sock), readable, writable))
             grpc.watchers[sock] = watcher
 
-            task = @async begin 
+            task = @async begin
                 while watcher.running && grpc.running
                     # Watcher configuration might be changed, wait until its safe to wait on the watcher
                     wait(watcher.ready)
@@ -327,7 +331,7 @@ function socket_callback(
                 end
 
                 # If the multi handle was shutdown, return without doing any operations on it
-                !grpc.running && return 
+                !grpc.running && return
 
                 # When we shut down the watcher do the check_multi_info in this task to avoid creating a new one
                 lock(grpc.lock) do
@@ -384,7 +388,7 @@ mutable struct gRPCCURL
             nothing,
             Dict{curl_socket_t,CURLWatcher}(),
             true,
-            Vector{gRPCRequest}()
+            Vector{gRPCRequest}(),
         )
 
         grpc_multi_init(grpc)
@@ -400,16 +404,16 @@ function close(grpc::gRPCCURL)
     grpc.running = false
     sleep(0.25)
 
-    lock(grpc.lock) do 
+    lock(grpc.lock) do
         # Already closed
         if grpc.multi == Ptr{Cvoid}(0)
             @warn "close() called on already closed gRPCCURL struct"
-            return 
+            return
         end
-            
+
         # Cleanup easy handles
         while length(grpc.requests) > 0
-            request = pop!(grpc.requests) 
+            request = pop!(grpc.requests)
             curl_multi_remove_handle(grpc.multi, request.easy)
             curl_easy_cleanup(request.easy)
             # Unblock anything waiting on the request
@@ -426,18 +430,18 @@ function close(grpc::gRPCCURL)
         grpc.multi = Ptr{Cvoid}(0)
     end
 
-    nothing 
+    nothing
 end
 
 function open(grpc::gRPCCURL)
-    lock(grpc.lock) do 
+    lock(grpc.lock) do
         if grpc.multi != Ptr{Cvoid}(0)
             @warn "open() called on already opened gRPCCURL struct"
             return
         end
 
         # Guarantee that we start with a clean slate
-        grpc.watchers = Dict{curl_socket_t, CURLWatcher}()
+        grpc.watchers = Dict{curl_socket_t,CURLWatcher}()
         grpc.requests = Vector{gRPCRequest}()
         grpc.timer = nothing
 
@@ -470,7 +474,7 @@ function check_multi_info(grpc::gRPCCURL)
             # Removing the handle here helps with lock contention
             curl_multi_remove_handle(req.multi, req.easy)
             curl_easy_cleanup(req.easy)
-            grpc.requests = filter(x->x !== req, grpc.requests)
+            grpc.requests = filter(x -> x !== req, grpc.requests)
             notify(req.ready)
 
         else

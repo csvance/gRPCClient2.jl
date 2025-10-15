@@ -21,25 +21,44 @@ grpc_init() = open(_grpc)
 grpc_shutdown() = close(_grpc)
 
 
-struct gRPCClient{TRequest, TResponse}
-    grpc :: gRPCCURL
-    host :: String
-    port :: Int64
-    path :: String
-    secure :: Bool
-    deadline :: Float64
-    keepalive :: Float64
+struct gRPCClient{TRequest,TResponse}
+    grpc::gRPCCURL
+    host::String
+    port::Int64
+    path::String
+    secure::Bool
+    deadline::Float64
+    keepalive::Float64
 
-    gRPCClient{TRequest, TResponse}(host, port, path; secure=false, grpc=_grpc, deadline=10, keepalive=60) where {TRequest <: Any, TResponse <: Any} = new(grpc, host, port, path, secure, deadline, keepalive)
+    gRPCClient{TRequest,TResponse}(
+        host,
+        port,
+        path;
+        secure = false,
+        grpc = _grpc,
+        deadline = 10,
+        keepalive = 60,
+    ) where {TRequest<:Any,TResponse<:Any} =
+        new(grpc, host, port, path, secure, deadline, keepalive)
 end
 
-function url(client::gRPCClient)  
-    protocol = if client.secure "grpcs" else "grpc" end
+function url(client::gRPCClient)
+    protocol = if client.secure
+        "grpcs"
+    else
+        "grpc"
+    end
     "$protocol://$(client.host):$(client.port)$(client.path)"
 end
 
 
-function grpc_unary_async_request(grpc::gRPCCURL, url, request; deadline = 10, keepalive = 60)
+function grpc_unary_async_request(
+    grpc::gRPCCURL,
+    url,
+    request;
+    deadline = 10,
+    keepalive = 60,
+)
     # Create single buffer that contains the post data for the gRPC request
     req_buf = IOBuffer()
 
@@ -104,7 +123,33 @@ function grpc_unary_async_await(grpc::gRPCCURL, req, TResponse)
 end
 
 
-grpc_unary_async_request(client::gRPCClient{TRequest, TResponse}, request::TRequest) where {TRequest <: Any, TResponse <: Any} = grpc_unary_async_request(client.grpc, url(client), request; deadline=client.deadline, keepalive=client.keepalive)
-grpc_unary_async_await(client::gRPCClient{TRequest, TResponse}, request::gRPCRequest) where {TRequest <: Any, TResponse <: Any} = grpc_unary_async_await(client.grpc, request, TResponse)
-grpc_unary_sync(client::gRPCClient{TRequest, TResponse}, request::TRequest) where {TRequest <: Any, TResponse <: Any} = grpc_unary_async_await(client.grpc, grpc_unary_async_request(client.grpc, url(client), request; deadline=client.deadline, keepalive=client.keepalive), TResponse) 
-
+grpc_unary_async_request(
+    client::gRPCClient{TRequest,TResponse},
+    request::TRequest,
+) where {TRequest<:Any,TResponse<:Any} = grpc_unary_async_request(
+    client.grpc,
+    url(client),
+    request;
+    deadline = client.deadline,
+    keepalive = client.keepalive,
+)
+grpc_unary_async_await(
+    client::gRPCClient{TRequest,TResponse},
+    request::gRPCRequest,
+) where {TRequest<:Any,TResponse<:Any} =
+    grpc_unary_async_await(client.grpc, request, TResponse)
+    
+grpc_unary_sync(
+    client::gRPCClient{TRequest,TResponse},
+    request::TRequest,
+) where {TRequest<:Any,TResponse<:Any} = grpc_unary_async_await(
+    client.grpc,
+    grpc_unary_async_request(
+        client.grpc,
+        url(client),
+        request;
+        deadline = client.deadline,
+        keepalive = client.keepalive,
+    ),
+    TResponse,
+)

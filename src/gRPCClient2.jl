@@ -6,8 +6,13 @@ using ProtoBuf
 using FileWatching
 using Base: OS_HANDLE
 
-import Base.wait, Base.reset, Base.notify, Base.isreadable, Base.iswritable, Base.close, Base.open
-import ProtoBuf.CodeGenerators.ServiceType, ProtoBuf.CodeGenerators.RPCType, ProtoBuf.CodeGenerators.Context, ProtoBuf.CodeGenerators.codegen, ProtoBuf.CodeGenerators.safename
+import Base.wait,
+    Base.reset, Base.notify, Base.isreadable, Base.iswritable, Base.close, Base.open
+import ProtoBuf.CodeGenerators.ServiceType,
+    ProtoBuf.CodeGenerators.RPCType,
+    ProtoBuf.CodeGenerators.Context,
+    ProtoBuf.CodeGenerators.codegen,
+    ProtoBuf.CodeGenerators.safename
 
 abstract type gRPCException <: Exception end
 
@@ -20,7 +25,7 @@ include("Curl.jl")
 include("gRPC.jl")
 include("ProtoBuf.jl")
 
-export grpc_init 
+export grpc_init
 export grpc_shutdown
 
 export grpc_unary_async_request
