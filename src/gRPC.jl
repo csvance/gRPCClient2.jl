@@ -19,6 +19,7 @@ const _grpc = gRPCCURL()
 
 grpc_init() = open(_grpc)
 grpc_shutdown() = close(_grpc)
+grpc_global_handle() = _grpc
 
 
 struct gRPCClient{TRequest,TResponse}
@@ -133,12 +134,13 @@ grpc_unary_async_request(
     deadline = client.deadline,
     keepalive = client.keepalive,
 )
+
 grpc_unary_async_await(
     client::gRPCClient{TRequest,TResponse},
     request::gRPCRequest,
 ) where {TRequest<:Any,TResponse<:Any} =
     grpc_unary_async_await(client.grpc, request, TResponse)
-    
+
 grpc_unary_sync(
     client::gRPCClient{TRequest,TResponse},
     request::TRequest,

@@ -15,7 +15,7 @@ using gRPCClient2
 
 grpc_init()
 
-# This will eventually be created by ProtoBuf code generation
+# This will be automatically created by ProtoBuf code generation soon
 TestService_TestRPC_Client(host, port; secure=false, deadline=10, keepalive=60) = gRPCClient{TestRequest, TestResponse}(host, port, "/test.TestService/TestRPC"; secure=secure, deadline=deadline, keepalive=keepalive)
 
 # Create a client 

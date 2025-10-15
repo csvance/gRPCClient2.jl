@@ -2,16 +2,13 @@ using Test
 using ProtoBuf 
 using gRPCClient2
 
-# request / response protobuf for our test RPC
+# protobuf and service definitions for our tests
 include("gen/test/test_pb.jl")
-
 
 @testset "gRPCClient2.jl" begin
     # Initialize the global gRPCCURL structure
     grpc_init()
 
-    # This would normally be created by bindings
-    TestService_TestRPC_Client(host, port; secure=false, deadline=10, keepalive=60) = gRPCClient{TestRequest, TestResponse}(host, port, "/test.TestService/TestRPC"; secure=secure, deadline=deadline, keepalive=keepalive)
     client = TestService_TestRPC_Client("localhost", 8001)
 
     @testset "@async varying request/response" begin

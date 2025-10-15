@@ -27,6 +27,7 @@ include("ProtoBuf.jl")
 
 export grpc_init
 export grpc_shutdown
+export grpc_global_handle
 
 export grpc_unary_async_request
 export grpc_unary_async_await
