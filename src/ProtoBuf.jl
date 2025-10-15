@@ -27,6 +27,7 @@ function codegen(io, t::ServiceType, ctx::Context)
         async_await_method = "$(service_name)_$(rpc_t.name)_async_await"
         sync_await_method = "$(service_name)_$(rpc_t.name)_sync"
 
+        # TODO: just generate client stubs instead 
         println(io, "$async_request_method(grpc, url, request::$(request_type); deadline=10, keepalive=60) = grpc_unary_async_request(grpc, grpc_path_url(url, \"$rpc_path\"), request; deadline=deadline, keepalive=keepalive)")
         println(io, "$async_await_method(grpc, request) = grpc_unary_async_await(grpc, request, $response_type)")
         println(io, "$sync_await_method(grpc, url, request::$(request_type); deadline=10, keepalive=60) = $async_await_method(grpc, $async_request_method(grpc, url, request; deadline=deadline, keepalive=keepalive))")

@@ -29,6 +29,7 @@ export grpc_unary_sync
 
 export gRPCCURL
 export gRPCRequest
+export gRPCClient
 
 export open
 export close

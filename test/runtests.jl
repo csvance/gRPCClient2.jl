@@ -7,18 +7,22 @@ include("gen/test/test_pb.jl")
 
 
 @testset "gRPCClient2.jl" begin
+    # Initialize the global gRPCCURL structure
     grpc_init()
 
-    @testset "@async varying request/response" begin
+    # This would normally be created by bindings
+    TestService_TestRPC_Client(host, port; secure=false, deadline=10, keepalive=60) = gRPCClient{TestRequest, TestResponse}(host, port, "/test.TestService/TestRPC"; secure=secure, deadline=deadline, keepalive=keepalive)
+    client = TestService_TestRPC_Client("localhost", 8001)
 
+    @testset "@async varying request/response" begin
         requests = Vector{gRPCRequest}()
         for i in 1:1000
-            request = grpc_unary_async_request("grpc://localhost:8001/test.TestService/TestRPC", TestRequest(i, zeros(UInt64, i)))
+            request = grpc_unary_async_request(client, TestRequest(i, zeros(UInt64, i)))
             push!(requests, request)
         end 
 
         for (i, request) in enumerate(requests)
-            response = grpc_unary_async_await(request, TestResponse)
+            response = grpc_unary_async_await(client, request)
             @test length(response.data) == i
 
             for (di, dv) in enumerate(response.data)
@@ -30,12 +34,12 @@ include("gen/test/test_pb.jl")
     @testset "@async small request/response" begin 
         requests = Vector{gRPCRequest}()
         for i in 1:1000
-            request = grpc_unary_async_request("grpc://localhost:8001/test.TestService/TestRPC", TestRequest(1, zeros(UInt64, 1)))
+            request = grpc_unary_async_request(client, TestRequest(1, zeros(UInt64, 1)))
             push!(requests, request)
         end 
 
         for (i, request) in enumerate(requests)
-            response = grpc_unary_async_await(request, TestResponse)
+            response = grpc_unary_async_await(client, request)
             @test length(response.data) == 1
             @test response.data[1] == 1
         end
@@ -45,7 +49,7 @@ include("gen/test/test_pb.jl")
         responses = [TestResponse(Vector{UInt64}()) for _ in 1:1000]
 
         @sync Threads.@threads for i in 1:1000
-            response = grpc_unary_sync("grpc://localhost:8001/test.TestService/TestRPC", TestRequest(1, zeros(UInt64, 1)), TestResponse)
+            response = grpc_unary_sync(client, TestRequest(1, zeros(UInt64, 1)))
             responses[i] = response
         end 
 
@@ -59,7 +63,7 @@ include("gen/test/test_pb.jl")
         responses = [TestResponse(Vector{UInt64}()) for _ in 1:1000]
 
         @sync Threads.@threads for i in 1:1000
-            response = grpc_unary_sync("grpc://localhost:8001/test.TestService/TestRPC", TestRequest(i, zeros(UInt64, i)), TestResponse)
+            response = grpc_unary_sync(client, TestRequest(i, zeros(UInt64, i)))
             responses[i] = response
         end 
 
@@ -70,4 +74,5 @@ include("gen/test/test_pb.jl")
             end
         end
     end
+
 end

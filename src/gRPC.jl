@@ -21,6 +21,24 @@ grpc_init() = open(_grpc)
 grpc_shutdown() = close(_grpc)
 
 
+struct gRPCClient{TRequest, TResponse}
+    grpc :: gRPCCURL
+    host :: String
+    port :: Int64
+    path :: String
+    secure :: Bool
+    deadline :: Float64
+    keepalive :: Float64
+
+    gRPCClient{TRequest, TResponse}(host, port, path; secure=false, grpc=_grpc, deadline=10, keepalive=60) where {TRequest <: Any, TResponse <: Any} = new(grpc, host, port, path, secure, deadline, keepalive)
+end
+
+function url(client::gRPCClient)  
+    protocol = if client.secure "grpcs" else "grpc" end
+    "$protocol://$(client.host):$(client.port)$(client.path)"
+end
+
+
 function grpc_unary_async_request(grpc::gRPCCURL, url, request; deadline = 10, keepalive = 60)
     # Create single buffer that contains the post data for the gRPC request
     req_buf = IOBuffer()
@@ -45,6 +63,8 @@ function grpc_unary_async_request(grpc::gRPCCURL, url, request; deadline = 10, k
 end
 
 
+const regex_grpc_status = r"grpc-status: ([0-9]+)"
+const regex_grpc_message = Regex("grpc-message: (.*)", "s")
 
 function grpc_unary_async_await(grpc::gRPCCURL, req, TResponse)
     wait(req)
@@ -61,15 +81,12 @@ function grpc_unary_async_await(grpc::gRPCCURL, req, TResponse)
     grpc_status = GRPC_OK
     grpc_message = ""
 
-    reg_grpc_status = r"grpc-status: ([0-9]+)"
-    reg_grpc_message = Regex("grpc-message: (.*)", "s")
-
     for header in req.headers
         header = strip(header)
 
-        if (m_grpc_status = match(reg_grpc_status, header)) !== nothing
+        if (m_grpc_status = match(regex_grpc_status, header)) !== nothing
             grpc_status = parse(UInt64, m_grpc_status.captures[1])
-        elseif (m_grpc_message = match(reg_grpc_message, header)) !== nothing
+        elseif (m_grpc_message = match(regex_grpc_message, header)) !== nothing
             grpc_message = m_grpc_message.captures[1]
         end
     end
@@ -87,32 +104,7 @@ function grpc_unary_async_await(grpc::gRPCCURL, req, TResponse)
 end
 
 
-function grpc_unary_sync(grpc::gRPCCURL, url, request, TResponse; deadline = 10, keepalive = 60)
-    grpc_unary_async_await(
-        grpc,
-        grpc_unary_async_request(
-            grpc,
-            url,
-            request;
-            deadline = deadline,
-            keepalive = keepalive,
-        ),
-        TResponse,
-    )
-end
+grpc_unary_async_request(client::gRPCClient{TRequest, TResponse}, request::TRequest) where {TRequest <: Any, TResponse <: Any} = grpc_unary_async_request(client.grpc, url(client), request; deadline=client.deadline, keepalive=client.keepalive)
+grpc_unary_async_await(client::gRPCClient{TRequest, TResponse}, request::gRPCRequest) where {TRequest <: Any, TResponse <: Any} = grpc_unary_async_await(client.grpc, request, TResponse)
+grpc_unary_sync(client::gRPCClient{TRequest, TResponse}, request::TRequest) where {TRequest <: Any, TResponse <: Any} = grpc_unary_async_await(client.grpc, grpc_unary_async_request(client.grpc, url(client), request; deadline=client.deadline, keepalive=client.keepalive), TResponse) 
 
-# Global gRPCCURL version
-grpc_unary_async_request(url, request; deadline = 10, keepalive = 60) = grpc_unary_async_request(_grpc, url, request; deadline=deadline, keepalive=keepalive)
-grpc_unary_async_await(req, TResponse) = grpc_unary_async_await(_grpc, req, TResponse)
-grpc_unary_sync(url, request, TResponse; deadline = 10, keepalive = 60) = grpc_unary_sync(_grpc, url, request, TResponse; deadline=deadline, keepalive=keepalive)
-
-
-function grpc_path_url(url, path)
-    if endswith(url, "/")
-        "$(url)$path"
-    else
-        url = url[1:length(url)-1]
-    end
-
-    "$(url)$path"
-end

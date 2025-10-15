@@ -15,26 +15,25 @@ using gRPCClient2
 
 grpc_init()
 
-# Sync
-test_response = grpc_unary_sync("grpc://localhost:50051/test.TestService/TestRPC", TestRequest(1), TestResponse)
+# This will eventually be created by ProtoBuf code generation
+TestService_TestRPC_Client(host, port; secure=false, deadline=10, keepalive=60) = gRPCClient{TestRequest, TestResponse}(host, port, "/test.TestService/TestRPC"; secure=secure, deadline=deadline, keepalive=keepalive)
 
-# Async
+# Create a client 
+client = TestService_TestRPC_Client("localhost", 8001)
+
+# Sync API
+test_response = grpc_unary_sync(client, TestRequest(1))
+
+# Async API
 requests = Vector{gRPCRequest}()
 for i in 1:10
     push!(
         requests, 
-        grpc_unary_async_request("grpc://localhost:50051/test.TestService/TestRPC", TestRequest(1))
+        grpc_unary_async_request(client, TestRequest(1))
     )
 end
 
 for request in requests
-    response::TestResponse = grpc_unary_async_await(request, TestResponse)
+    response = grpc_unary_async_await(client, request)
 end
-```
-
-Once code generation support is finished, it will look something like this:
-
-```julia
-request = TestService_TestRPC_async_request("grpc://localhost:8001", TestRequest(1))
-response = TestService_TestRPC_async_await(request)
 ```
