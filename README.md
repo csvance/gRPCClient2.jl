@@ -13,12 +13,29 @@ Code generation integration with ProtoBuf.jl is not complete yet but the followi
 ```julia
 using gRPCClient2
 
+# Initialize the gRPC package - grpc_shutdown() does the opposite for use with Revise.
 grpc_init()
 
-# This will be automatically created by ProtoBuf code generation soon
-TestService_TestRPC_Client(host, port; secure=false, deadline=10, keepalive=60) = gRPCClient{TestRequest, TestResponse}(host, port, "/test.TestService/TestRPC"; secure=secure, deadline=deadline, keepalive=keepalive)
+# Client stubs like this will be automatically created by ProtoBuf code generation in the near future
+TestService_TestRPC_Client(
+	host, port;
+	secure=false,
+	grpc=grpc_global_handle(),
+	deadline=10,
+	keepalive=60,
+    max_send_message_length = 4*1024*1024,
+    max_recieve_message_length = 4*1024*1024,
+) = gRPCClient{TestRequest, TestResponse}(
+	host, port, "/test.TestService/TestRPC";
+	secure=secure,
+	grpc=grpc,
+	deadline=deadline,
+	keepalive=keepalive,
+    max_send_message_length = max_send_message_length,
+    max_recieve_message_length = max_recieve_message_length,
+)
 
-# Create a client 
+# Create a client from the generated client stub
 client = TestService_TestRPC_Client("localhost", 8001)
 
 # Sync API
