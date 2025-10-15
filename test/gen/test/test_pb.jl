@@ -88,7 +88,6 @@ TestService_TestRPC_Client(
 	grpc=grpc,
 	deadline=deadline,
 	keepalive=keepalive,
-    max_send_message_length = max_send_message_length,
-    max_recieve_message_length = max_recieve_message_length
-
+    max_send_message_length=max_send_message_length,
+    max_recieve_message_length=max_recieve_message_length,
 )

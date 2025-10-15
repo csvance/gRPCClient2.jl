@@ -86,7 +86,7 @@ function grpc_unary_async_request(
 
     # Seek back to length prefix and update it with size of encoded protobuf
     seek(req_buf, 1)
-    write(req_buf, ntoh(sz))
+    write(req_buf, hton(sz))
 
     # Seek to start before initializing the request
     seek(req_buf, 0)
