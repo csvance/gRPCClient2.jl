@@ -34,12 +34,12 @@ function write_callback(
         buf = unsafe_wrap(Array, convert(Ptr{UInt8}, data), (n,))
         write(req.response, buf)
 
-        if !req.response_first_three && req.response.size >= GRPC_PREFIX_SIZE
+        if !req.response_read_header && req.response.size >= GRPC_PREFIX_SIZE
             seek(req.response, 0)
 
             req.response_compressed = read(req.response, UInt8) > 0
             req.response_length = ntoh(read(req.response, UInt32))
-            req.response_first_three = true
+            req.response_read_header = true
 
             if req.response_length > req.max_recieve_message_length
                 # This will be thrown by the thread waiting on the request to finish
@@ -55,7 +55,7 @@ function write_callback(
             seekend(req.response)
         end
 
-        if req.response_first_three && size_after_write > req.response_length + GRPC_PREFIX_SIZE
+        if req.response_read_header && size_after_write > req.response_length + GRPC_PREFIX_SIZE
             # This will be thrown by the thread waiting on the request to finish
             req.ex = gRPCServiceCallException(
                 GRPC_RESOURCE_EXHAUSTED, 
@@ -131,7 +131,7 @@ mutable struct gRPCRequest
     max_send_message_length::Int64
     max_recieve_message_length::Int64
     ex::Union{Nothing, Exception}
-    response_first_three::Bool
+    response_read_header::Bool
     response_compressed::Bool 
     response_length::UInt32
 
