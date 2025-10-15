@@ -1,3 +1,6 @@
+GRPC_PREFIX_SIZE = 5
+
+
 const CURL_VERSION_STR = unsafe_string(curl_version())
 let m = match(r"^libcurl/(\d+\.\d+\.\d+)\b", CURL_VERSION_STR)
     m !== nothing || error("unexpected CURL_VERSION_STR value")
@@ -16,8 +19,52 @@ function write_callback(
     try
         req = unsafe_pointer_to_objref(req_p)::gRPCRequest
         n = size * count
+        size_after_write = req.response.size + n
+
+        if size_after_write - GRPC_PREFIX_SIZE > req.max_recieve_message_length
+            # This will be thrown by the thread waiting on the request to finish
+            req.ex = gRPCServiceCallException(
+                GRPC_RESOURCE_EXHAUSTED, 
+                "effective response message size larger than max_recieve_message_length: $(size_after_write - GRPC_PREFIX_SIZE) > $(req.max_recieve_message_length)"
+            )
+            # Returning anything other than n causes curl to abort this connection
+            return typemax(Csize_t)
+        end
+
         buf = unsafe_wrap(Array, convert(Ptr{UInt8}, data), (n,))
         write(req.response, buf)
+
+        if !req.response_first_three && req.response.size >= GRPC_PREFIX_SIZE
+            seek(req.response, 0)
+
+            req.response_compressed = read(req.response, UInt8) > 0
+            req.response_length = ntoh(read(req.response, UInt32))
+            req.response_first_three = true
+
+            if req.response_length > req.max_recieve_message_length
+                # This will be thrown by the thread waiting on the request to finish
+                req.ex = gRPCServiceCallException(
+                    GRPC_RESOURCE_EXHAUSTED, 
+                    "declared message length-prefix larger than max_recieve_message_length: $(req.response_length) > $(req.max_recieve_message_length)"
+                )
+                # Returning anything other than n causes curl to abort this connection
+                return typemax(Csize_t)
+            end
+
+            # Seek back to the end so we can continue normally
+            seekend(req.response)
+        end
+
+        if req.response_first_three && size_after_write > req.response_length + GRPC_PREFIX_SIZE
+            # This will be thrown by the thread waiting on the request to finish
+            req.ex = gRPCServiceCallException(
+                GRPC_RESOURCE_EXHAUSTED, 
+                "effective response message size larger than declared prefix-length: $(size_after_write) > $(req.response_length + GRPC_PREFIX_SIZE)"
+            )
+            # Returning anything other than n causes curl to abort this connection
+            return typemax(Csize_t)
+        end
+
         return n
     catch err
         @async @error("write_callback: unexpected error", err = err, maxlog = 1_000)
@@ -81,8 +128,20 @@ mutable struct gRPCRequest
     errbuf::Vector{UInt8}
     headers::Vector{String}
     ptr::Int64
+    max_send_message_length::Int64
+    max_recieve_message_length::Int64
+    ex::Union{Nothing, Exception}
+    response_first_three::Bool
+    response_compressed::Bool 
+    response_length::UInt32
 
-    function gRPCRequest(grpc, url, request; deadline = 10, keepalive = 60)
+    function gRPCRequest(
+        grpc, url, request; 
+        deadline = 10, 
+        keepalive = 60,
+        max_send_message_length = 4*1024*1024,
+        max_recieve_message_length = 4*1024*1024
+    )
         easy_handle = curl_easy_init()
 
         # curl_easy_setopt(easy_handle, CURLOPT_VERBOSE, UInt32(1))
@@ -149,6 +208,12 @@ mutable struct gRPCRequest
             zeros(UInt8, CURL_ERROR_SIZE),
             Vector{String}(),
             1,
+            max_send_message_length,
+            max_recieve_message_length,
+            nothing,
+            false,
+            false,
+            0
         )
 
         req_p = pointer_from_objref(req)

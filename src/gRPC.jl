@@ -30,6 +30,8 @@ struct gRPCClient{TRequest,TResponse}
     secure::Bool
     deadline::Float64
     keepalive::Float64
+    max_send_message_length::Int64
+    max_recieve_message_length::Int64
 
     gRPCClient{TRequest,TResponse}(
         host,
@@ -39,8 +41,10 @@ struct gRPCClient{TRequest,TResponse}
         grpc = _grpc,
         deadline = 10,
         keepalive = 60,
+        max_send_message_length = 4*1024*1024,
+        max_recieve_message_length = 4*1024*1024,
     ) where {TRequest<:Any,TResponse<:Any} =
-        new(grpc, host, port, path, secure, deadline, keepalive)
+        new(grpc, host, port, path, secure, deadline, keepalive, max_send_message_length, max_recieve_message_length)
 end
 
 function url(client::gRPCClient)
@@ -59,6 +63,8 @@ function grpc_unary_async_request(
     request;
     deadline = 10,
     keepalive = 60,
+    max_send_message_length = 4*1024*1024,
+    max_recieve_message_length = 4*1024*1024
 )
     # Create single buffer that contains the post data for the gRPC request
     req_buf = IOBuffer()
@@ -71,6 +77,13 @@ function grpc_unary_async_request(
     e = ProtoEncoder(req_buf)
     sz = UInt32(encode(e, request))
 
+    if req_buf.size - GRPC_PREFIX_SIZE > max_send_message_length
+        throw(gRPCServiceCallException(
+            GRPC_RESOURCE_EXHAUSTED, 
+            "request message larger than max_send_message_length: $(req_buf.size - GRPC_PREFIX_SIZE) > $max_send_message_length")
+        )
+    end
+
     # Seek back to length prefix and update it with size of encoded protobuf
     seek(req_buf, 1)
     write(req_buf, ntoh(sz))
@@ -79,7 +92,13 @@ function grpc_unary_async_request(
     seek(req_buf, 0)
 
     # Create the request and register it with the libCURL multi handle in grpc
-    gRPCRequest(grpc, url, req_buf; deadline = deadline, keepalive = keepalive)
+    gRPCRequest(
+        grpc, url, req_buf; 
+        deadline = deadline, 
+        keepalive = keepalive, 
+        max_send_message_length=max_send_message_length, 
+        max_recieve_message_length=max_recieve_message_length
+    )
 end
 
 
@@ -89,6 +108,9 @@ const regex_grpc_message = Regex("grpc-message: (.*)", "s")
 function grpc_unary_async_await(grpc::gRPCCURL, req, TResponse)
     wait(req)
 
+    # Throw an exception for this request if we have one
+    !isnothing(req.ex) && throw(req.ex)
+        
     req.code == CURLE_OPERATION_TIMEDOUT &&
         throw(gRPCServiceCallException(GRPC_DEADLINE_EXCEEDED, "Deadline exceeded."))
     req.code != CURLE_OK && throw(
@@ -133,6 +155,8 @@ grpc_unary_async_request(
     request;
     deadline = client.deadline,
     keepalive = client.keepalive,
+    max_send_message_length = client.max_send_message_length,
+    max_recieve_message_length = client.max_recieve_message_length
 )
 
 grpc_unary_async_await(
@@ -152,6 +176,8 @@ grpc_unary_sync(
         request;
         deadline = client.deadline,
         keepalive = client.keepalive,
+        max_send_message_length = client.max_send_message_length,
+        max_recieve_message_length = client.max_recieve_message_length
     ),
     TResponse,
 )
