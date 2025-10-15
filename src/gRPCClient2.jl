@@ -7,6 +7,7 @@ using FileWatching
 using Base: OS_HANDLE
 
 import Base.wait, Base.reset, Base.notify, Base.isreadable, Base.iswritable
+import ProtoBuf.CodeGenerators.ServiceType, ProtoBuf.CodeGenerators.RPCType, ProtoBuf.CodeGenerators.Context, ProtoBuf.CodeGenerators.codegen, ProtoBuf.CodeGenerators.safename
 
 abstract type gRPCException <: Exception end
 
@@ -17,6 +18,7 @@ end
 
 include("Curl.jl")
 include("gRPC.jl")
+include("ProtoBuf.jl")
 
 export grpc_unary_async_request
 export grpc_unary_async_await

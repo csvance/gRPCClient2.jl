@@ -38,6 +38,7 @@ function grpc_unary_async_request(grpc, url, request; deadline = 10, keepalive =
     gRPCRequest(grpc, url, req_buf; deadline = deadline, keepalive = keepalive)
 end
 
+
 function grpc_unary_async_await(grpc, req, TResponse)
     wait(req)
 
@@ -91,4 +92,15 @@ function grpc_unary_sync(grpc, url, request, TResponse; deadline = 10, keepalive
         ),
         TResponse,
     )
+end
+
+
+function grpc_path_url(url, path)
+    if endswith(url, "/")
+        "$(url)$path"
+    else
+        url = url[1:length(url)-1]
+    end
+
+    "$(url)$path"
 end

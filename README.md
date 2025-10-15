@@ -2,9 +2,13 @@
 
 [![CI](https://github.com/csvance/gRPCClient2.jl/actions/workflows/ci.yml/badge.svg)](https://github.com/csvance/gRPCClient2.jl/actions/workflows/ci.yml)
 
-gRPCClient2.jl aims to be a production grade gRPC client emphasizing performance and reliability. It borrows some elements from [gRPCClient.jl](https://github.com/JuliaComputing/gRPCClient.jl) and [Downloads.jl](https://github.com/JuliaLang/Downloads.jl) but diverges in that it directly interfaces with a custom libCURL backend specifically tailored for gRPC performance.
+gRPCClient2.jl aims to be a production grade gRPC client emphasizing performance and reliability.
+
+**Note that the package is in a pre-release state and external interfaces / API are unstable.**
 
 ## Usage
+
+Code generation integration with ProtoBuf.jl is not complete yet but the following lower level syntax can be used:
 
 ```julia
 using gRPCClient2
@@ -28,24 +32,15 @@ for request in requests
 end
 ```
 
-## Status
+Once code generation support is finished, it will look something like this:
 
-Currently the repo is in an rough state but multithreading works without deadlocks and things are running reasonably fast.
+```julia
+TestService_TestRPC_async_request(grpc, url, request::TestRequest; deadline=10, keepalive=60) = grpc_unary_async_request(grpc, grpc_path_url(url, "/test.TestService/TestRPC"), request; deadline=deadline, keepalive=keepalive)
+TestService_TestRPC_async_await(grpc, request) = grpc_unary_async_await(grpc, request, TestResponse)
+TestService_TestRPC_sync(grpc, url, request::TestRequest; deadline=10, keepalive=60) = TestService_TestRPC_async_await(grpc, TestService_TestRPC_async_request(grpc, url, request; deadline=deadline, keepalive=keepalive))
 
-## TODO
+grpc = gRPCCURL()
 
-- [x] Define formal interface for sync / async requests
-- [x] Refactor codebase, breaking things down into multiple files
-- [x] Propper handling of gRPC response headers / trailers
-- [ ] Provide curl error buffer when raising exceptions
-- [x] Performance analysis (type stability, allocations, multithreading, lock contention) and further optimizations
-- [x] Write tests
-- [x] Run tests with Github actions
-- [x] Write usage basic documentation
-- [ ] Client stub generation in ProtoBuf.jl
-- [ ] Benchmark scripts (compare vs other gRPC client implementations)
-- [ ] Static docs website style full documentation 
-- [ ] Support compression
-- [ ] Add support for streaming RPC
-
-Support is eventually planned for streaming RPC but its not a priority. Pull requests for this will be accepted only if it does not impact unary RPC performance at all.
+request = TestService_TestRPC_async_request(grpc, "grpc://localhost:8001", TestRequest(1))
+response = TestService_TestRPC_async_await(grpc, request)
+```
