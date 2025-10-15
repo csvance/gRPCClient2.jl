@@ -176,8 +176,13 @@ mutable struct gRPCRequest
         curl_easy_setopt(easy_handle, CURLOPT_HEADERDATA, req_p)
         curl_easy_setopt(easy_handle, CURLOPT_UPLOAD, true)
 
-
         lock(grpc.lock) do
+            if !grpc.running
+                curl_easy_cleanup(easy_handle)
+                throw(ErrorException("Tried to make a request when the provided grpc handle is shutdown"))
+            end
+
+            push!(grpc.requests, req)
             curl_multi_add_handle(grpc.multi, easy_handle)
         end
 
@@ -190,7 +195,6 @@ wait(req::gRPCRequest) = wait(req.ready)
 reset(req::gRPCRequest) = reset(req.ready)
 
 
-
 function timer_callback(multi_h::Ptr{Cvoid}, timeout_ms::Clong, grpc_p::Ptr{Cvoid})::Cint
     try
         grpc = unsafe_pointer_to_objref(grpc_p)::gRPCCURL
@@ -199,6 +203,7 @@ function timer_callback(multi_h::Ptr{Cvoid}, timeout_ms::Clong, grpc_p::Ptr{Cvoi
         if timeout_ms >= 0
             grpc.timer = Timer(timeout_ms / 1000) do timer
                 lock(grpc.lock) do
+                    !grpc.running && return
                     grpc.timer === timer || return
                     grpc.timer = nothing
                     curl_multi_socket_action(
@@ -230,7 +235,7 @@ mutable struct CURLWatcher
     sock::curl_socket_t
     fdw::FDWatcher
     ready::Event
-    run::Bool
+    running::Bool
 
 
     function CURLWatcher(sock, fdw)
@@ -242,6 +247,11 @@ end
 
 isreadable(w::CURLWatcher) = w.fdw.readable
 iswritable(w::CURLWatcher) = w.fdw.writable
+function close(w::CURLWatcher)
+    w.running = false
+    notify(w.ready)
+    close(w.fdw)
+end
 
 
 function socket_callback(
@@ -258,6 +268,9 @@ function socket_callback(
         end
 
         grpc = unsafe_pointer_to_objref(grpc_p)::gRPCCURL
+
+        # Handle is being shutdown, give exclusive access of watchers to close()
+        !grpc.running && return 0
 
         if action in (CURL_POLL_IN, CURL_POLL_OUT, CURL_POLL_INOUT)
             readable = action in (CURL_POLL_IN, CURL_POLL_INOUT)
@@ -290,7 +303,7 @@ function socket_callback(
             grpc.watchers[sock] = watcher
 
             task = @async begin 
-                while watcher.run
+                while watcher.running && grpc.running
                     # Watcher configuration might be changed, wait until its safe to wait on the watcher
                     wait(watcher.ready)
 
@@ -301,6 +314,7 @@ function socket_callback(
                         err isa Base.IOError || rethrow()
                         FileWatching.FDEvent()
                     end
+
                     flags =
                         CURL_CSELECT_IN * isreadable(events) +
                         CURL_CSELECT_OUT * iswritable(events) +
@@ -312,6 +326,9 @@ function socket_callback(
                     end
                 end
 
+                # If the multi handle was shutdown, return without doing any operations on it
+                grpc.running && return 
+
                 # When we shut down the watcher do the check_multi_info in this task to avoid creating a new one
                 lock(grpc.lock) do
                     check_multi_info(grpc)
@@ -321,9 +338,7 @@ function socket_callback(
         else
             # Shut down and cleanup the watcher for this socket
             watcher = grpc.watchers[sock]
-            watcher.run = false
-            notify(watcher.ready)
-            close(watcher.fdw)
+            close(watcher)
             delete!(grpc.watchers, sock)
         end
 
@@ -335,37 +350,102 @@ function socket_callback(
 end
 
 
+function grpc_multi_init(grpc)
+    grpc.multi = curl_multi_init()
+
+    grpc_p = pointer_from_objref(grpc)
+
+    timer_cb = @cfunction(timer_callback, Cint, (Ptr{Cvoid}, Clong, Ptr{Cvoid}))
+    curl_multi_setopt(grpc.multi, CURLMOPT_TIMERFUNCTION, timer_cb)
+    curl_multi_setopt(grpc.multi, CURLMOPT_TIMERDATA, grpc_p)
+
+    socket_cb = @cfunction(
+        socket_callback,
+        Cint,
+        (Ptr{Cvoid}, curl_socket_t, Cint, Ptr{Cvoid}, Ptr{Cvoid})
+    )
+    curl_multi_setopt(grpc.multi, CURLMOPT_SOCKETFUNCTION, socket_cb)
+    curl_multi_setopt(grpc.multi, CURLMOPT_SOCKETDATA, grpc_p)
+end
+
+
 mutable struct gRPCCURL
     multi::Ptr{Cvoid}
     lock::ReentrantLock
     timer::Union{Nothing,Timer}
-    run::Bool
     watchers::Dict{curl_socket_t,CURLWatcher}
+    running::Bool
+    requests::Vector{gRPCRequest}
 
     function gRPCCURL()
         grpc = new(
-            curl_multi_init(),
+            Ptr{Cvoid}(0),
             ReentrantLock(),
             nothing,
-            true,
             Dict{curl_socket_t,CURLWatcher}(),
+            true,
+            Vector{gRPCRequest}()
         )
-        grpc_p = pointer_from_objref(grpc)
 
-        timer_cb = @cfunction(timer_callback, Cint, (Ptr{Cvoid}, Clong, Ptr{Cvoid}))
-        curl_multi_setopt(grpc.multi, CURLMOPT_TIMERFUNCTION, timer_cb)
-        curl_multi_setopt(grpc.multi, CURLMOPT_TIMERDATA, grpc_p)
+        grpc_multi_init(grpc)
 
-        socket_cb = @cfunction(
-            socket_callback,
-            Cint,
-            (Ptr{Cvoid}, curl_socket_t, Cint, Ptr{Cvoid}, Ptr{Cvoid})
-        )
-        curl_multi_setopt(grpc.multi, CURLMOPT_SOCKETFUNCTION, socket_cb)
-        curl_multi_setopt(grpc.multi, CURLMOPT_SOCKETDATA, grpc_p)
+        finalizer((x) -> close(x), grpc)
 
         return grpc
     end
+end
+
+function close(grpc::gRPCCURL)
+    # Lock free way to get exclusive access to grpc.watchers
+    grpc.running = false
+    sleep(0.25)
+
+    lock(grpc.lock) do 
+        # Already closed
+        if grpc.multi == Ptr{Cvoid}(0)
+            @warn "close() called on already closed gRPCCURL struct"
+            return 
+        end
+            
+        # Cleanup easy handles
+        while length(grpc.requests) > 0
+            request = pop!(grpc.requests) 
+            curl_multi_remove_handle(grpc.multi, request.easy)
+            curl_easy_cleanup(request.easy)
+            # Unblock anything waiting on the request
+            notify(request.ready)
+        end
+
+        # Cleanup watchers
+        while length(grpc.watchers) > 0
+            _, watcher = pop!(grpc.watchers)
+            close(watcher)
+        end
+
+        curl_multi_cleanup(grpc.multi)
+        grpc.multi = Ptr{Cvoid}(0)
+    end
+
+    nothing 
+end
+
+function open(grpc::gRPCCURL)
+    lock(grpc.lock) do 
+        if grpc.multi != Ptr{Cvoid}(0)
+            @warn "open() called on already opened gRPCCURL struct"
+            return
+        end
+
+        # Guarantee that we start with a clean slate
+        grpc.watchers = Dict{curl_socket_t, CURLWatcher}()
+        grpc.requests = Vector{gRPCRequest}()
+        grpc.timer = nothing
+
+        grpc.running = true
+        grpc_multi_init(grpc)
+    end
+
+    nothing
 end
 
 struct CURLMsg
@@ -386,9 +466,13 @@ function check_multi_info(grpc::gRPCCURL)
             req = unsafe_pointer_to_objref(req_p_ref[])::gRPCRequest
             @assert easy_handle == req.easy
             req.code = message.code
+
             # Removing the handle here helps with lock contention
             curl_multi_remove_handle(req.multi, req.easy)
+            curl_easy_cleanup(req.easy)
+            grpc.requests = filter(x->x !== req, grpc.requests)
             notify(req.ready)
+
         else
             @async @error("curl_multi_info_read: unknown message", message, maxlog = 1_000)
         end

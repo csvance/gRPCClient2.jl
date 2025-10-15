@@ -15,7 +15,13 @@ GRPC_DATA_LOSS = 15
 GRPC_UNAUTHENTICATED = 16
 
 
-function grpc_unary_async_request(grpc, url, request; deadline = 10, keepalive = 60)
+const _grpc = gRPCCURL()
+
+grpc_init() = open(_grpc)
+grpc_shutdown() = close(_grpc)
+
+
+function grpc_unary_async_request(grpc::gRPCCURL, url, request; deadline = 10, keepalive = 60)
     # Create single buffer that contains the post data for the gRPC request
     req_buf = IOBuffer()
 
@@ -39,7 +45,8 @@ function grpc_unary_async_request(grpc, url, request; deadline = 10, keepalive =
 end
 
 
-function grpc_unary_async_await(grpc, req, TResponse)
+
+function grpc_unary_async_await(grpc::gRPCCURL, req, TResponse)
     wait(req)
 
     req.code == CURLE_OPERATION_TIMEDOUT &&
@@ -80,7 +87,7 @@ function grpc_unary_async_await(grpc, req, TResponse)
 end
 
 
-function grpc_unary_sync(grpc, url, request, TResponse; deadline = 10, keepalive = 60)
+function grpc_unary_sync(grpc::gRPCCURL, url, request, TResponse; deadline = 10, keepalive = 60)
     grpc_unary_async_await(
         grpc,
         grpc_unary_async_request(
@@ -93,6 +100,11 @@ function grpc_unary_sync(grpc, url, request, TResponse; deadline = 10, keepalive
         TResponse,
     )
 end
+
+# Global gRPCCURL version
+grpc_unary_async_request(url, request; deadline = 10, keepalive = 60) = grpc_unary_async_request(_grpc, url, request; deadline=deadline, keepalive=keepalive)
+grpc_unary_async_await(req, TResponse) = grpc_unary_async_await(_grpc, req, TResponse)
+grpc_unary_sync(url, request, TResponse; deadline = 10, keepalive = 60) = grpc_unary_sync(_grpc, url, request, TResponse; deadline=deadline, keepalive=keepalive)
 
 
 function grpc_path_url(url, path)
