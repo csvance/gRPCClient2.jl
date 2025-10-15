@@ -1,4 +1,4 @@
-GRPC_PREFIX_SIZE = 5
+GRPC_HEADER_SIZE = 5
 
 
 const CURL_VERSION_STR = unsafe_string(curl_version())
@@ -21,11 +21,11 @@ function write_callback(
         n = size * count
         size_after_write = req.response.size + n
 
-        if size_after_write - GRPC_PREFIX_SIZE > req.max_recieve_message_length
+        if size_after_write - GRPC_HEADER_SIZE > req.max_recieve_message_length
             # This will be thrown by the thread waiting on the request to finish
             req.ex = gRPCServiceCallException(
                 GRPC_RESOURCE_EXHAUSTED, 
-                "effective response message size larger than max_recieve_message_length: $(size_after_write - GRPC_PREFIX_SIZE) > $(req.max_recieve_message_length)"
+                "effective response message size larger than max_recieve_message_length: $(size_after_write - GRPC_HEADER_SIZE) > $(req.max_recieve_message_length)"
             )
             # Returning anything other than n causes curl to abort this connection
             return typemax(Csize_t)
@@ -34,7 +34,7 @@ function write_callback(
         buf = unsafe_wrap(Array, convert(Ptr{UInt8}, data), (n,))
         write(req.response, buf)
 
-        if !req.response_read_header && req.response.size >= GRPC_PREFIX_SIZE
+        if !req.response_read_header && req.response.size >= GRPC_HEADER_SIZE
             seek(req.response, 0)
 
             req.response_compressed = read(req.response, UInt8) > 0
@@ -55,11 +55,11 @@ function write_callback(
             seekend(req.response)
         end
 
-        if req.response_read_header && size_after_write > req.response_length + GRPC_PREFIX_SIZE
+        if req.response_read_header && size_after_write > req.response_length + GRPC_HEADER_SIZE
             # This will be thrown by the thread waiting on the request to finish
             req.ex = gRPCServiceCallException(
                 GRPC_RESOURCE_EXHAUSTED, 
-                "effective response message size larger than declared prefix-length: $(size_after_write) > $(req.response_length + GRPC_PREFIX_SIZE)"
+                "effective response message size larger than declared prefix-length: $(size_after_write) > $(req.response_length + GRPC_HEADER_SIZE)"
             )
             # Returning anything other than n causes curl to abort this connection
             return typemax(Csize_t)
@@ -81,13 +81,13 @@ function read_callback(
     try
         req = unsafe_pointer_to_objref(req_p)::gRPCRequest
 
-        buf_p = pointer(req.request.data) + (req.ptr - 1)
-        n_left = req.request.size - (req.ptr - 1)
+        buf_p = pointer(req.request.data) + (req.request_ptr - 1)
+        n_left = req.request.size - (req.request_ptr - 1)
         n = min(size * count, n_left)
 
         ccall(:memcpy, Ptr{Cvoid}, (Ptr{Cvoid}, Ptr{Cvoid}, Csize_t), data, buf_p, n)
 
-        req.ptr += n
+        req.request_ptr += n
 
         return n
     catch err
@@ -127,7 +127,7 @@ mutable struct gRPCRequest
     ready::Event
     errbuf::Vector{UInt8}
     headers::Vector{String}
-    ptr::Int64
+    request_ptr::Int64
     max_send_message_length::Int64
     max_recieve_message_length::Int64
     ex::Union{Nothing, Exception}

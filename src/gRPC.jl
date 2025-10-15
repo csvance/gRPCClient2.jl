@@ -77,10 +77,10 @@ function grpc_unary_async_request(
     e = ProtoEncoder(req_buf)
     sz = UInt32(encode(e, request))
 
-    if req_buf.size - GRPC_PREFIX_SIZE > max_send_message_length
+    if req_buf.size - GRPC_HEADER_SIZE > max_send_message_length
         throw(gRPCServiceCallException(
             GRPC_RESOURCE_EXHAUSTED, 
-            "request message larger than max_send_message_length: $(req_buf.size - GRPC_PREFIX_SIZE) > $max_send_message_length")
+            "request message larger than max_send_message_length: $(req_buf.size - GRPC_HEADER_SIZE) > $max_send_message_length")
         )
     end
 
