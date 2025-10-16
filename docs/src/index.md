@@ -2,7 +2,7 @@
 
 gRPCClient2.jl aims to be a production grade gRPC client emphasizing performance and reliability.
 
-## Supported Features
+## Features
 
 - Unary RPC (non streaming)
 - HTTP/2 connection multiplexing
@@ -32,17 +32,17 @@ protojl("proto/test.proto", ".", "gen")
 
 ## Making Requests
 
-```
+```julia
 using gRPCClient2
 
 # Include the generated bindings
-include("gen/test/test_pb.jl")
+include("../../test/gen/test/test_pb.jl")
 
 # Create a client bound to a specific RPC
-client = TestService_TestRPC_Client("localhost", 8001)
+client = TestService_TestRPC_Client("172.238.177.88", 8001)
 
 # Make a syncronous request and get back a TestResponse
-response = grpc_sync_request(client, TestRequest(1, Vector{UInt64}()))
+response = grpc_sync_request(client, TestRequest(1, zeros(UInt64, 1)))
 @info response
 
 # Make some async requests and await their TestResponse
@@ -50,7 +50,7 @@ requests = Vector{gRPCRequest}()
 for i in 1:10
     push!(
         requests, 
-        grpc_async_request(client, TestRequest(1))
+        grpc_async_request(client, TestRequest(1, zeros(UInt64, 1)))
     )
 end
 
