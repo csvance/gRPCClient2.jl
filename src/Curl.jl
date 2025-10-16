@@ -142,6 +142,10 @@ mutable struct gRPCRequest
         max_send_message_length = 4 * 1024 * 1024,
         max_recieve_message_length = 4 * 1024 * 1024,
     )
+
+        # Reduce number of available requests by one or block if its currently zero
+        acquire(grpc.sem)
+
         easy_handle = curl_easy_init()
 
         # curl_easy_setopt(easy_handle, CURLOPT_VERBOSE, UInt32(1))
@@ -446,8 +450,9 @@ mutable struct gRPCCURL
     watchers::Dict{curl_socket_t,CURLWatcher}
     running::Bool
     requests::Vector{gRPCRequest}
+    sem::Semaphore
 
-    function gRPCCURL()
+    function gRPCCURL(max_streams=GRPC_MAX_STREAMS)
         grpc = new(
             Ptr{Cvoid}(0),
             ReentrantLock(),
@@ -455,6 +460,7 @@ mutable struct gRPCCURL
             Dict{curl_socket_t,CURLWatcher}(),
             true,
             Vector{gRPCRequest}(),
+            Semaphore(max_streams)
         )
 
         grpc_multi_init(grpc)
@@ -508,6 +514,7 @@ function open(grpc::gRPCCURL)
         grpc.watchers = Dict{curl_socket_t,CURLWatcher}()
         grpc.requests = Vector{gRPCRequest}()
         grpc.timer = nothing
+        grpc.sem = Semaphore(grpc.sem.sem_size)
 
         grpc.running = true
         grpc_multi_init(grpc)
@@ -541,6 +548,9 @@ function check_multi_info(grpc::gRPCCURL)
 
             grpc.requests = filter(x -> x !== req, grpc.requests)
             notify(req.ready)
+
+            # Allow a new request now that this one is complete
+            release(grpc.sem)
         else
             @async @error("curl_multi_info_read: unknown message", message, maxlog = 1_000)
         end

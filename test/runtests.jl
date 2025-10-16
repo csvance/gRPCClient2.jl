@@ -42,6 +42,20 @@ include("gen/test/test_pb.jl")
         end
     end 
 
+    @testset "@async big request/response" begin 
+        requests = Vector{gRPCRequest}()
+        for i in 1:100
+            # 28*224*sizeof(UInt64) == sending batch of 32 224*224 UInt8 image
+            request = grpc_async_request(client, TestRequest(64, zeros(UInt64, 32*28*224)))
+            push!(requests, request)
+        end 
+
+        for (i, request) in enumerate(requests)
+            response = grpc_async_await(client, request)
+            @test length(response.data) == 64
+        end
+    end 
+
     @testset "Threads.@spawn small request/response" begin
         responses = [TestResponse(Vector{UInt64}()) for _ in 1:1000]
 

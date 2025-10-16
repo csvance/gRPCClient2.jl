@@ -7,6 +7,7 @@ using Base.Threads
 using ProtoBuf
 using FileWatching
 using Base: OS_HANDLE
+using Base: Semaphore, acquire, release
 
 import Base.wait,
     Base.reset, Base.notify, Base.isreadable, Base.iswritable, Base.close, Base.open
@@ -33,6 +34,7 @@ struct gRPCServiceCallException <: gRPCException
 end
 
 const GRPC_HEADER_SIZE = 5
+const GRPC_MAX_STREAMS = 16
 
 const GRPC_OK = 0
 const GRPC_CANCELLED = 1
