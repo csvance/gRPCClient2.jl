@@ -19,13 +19,17 @@ import ProtoBuf.CodeGenerators.ServiceType,
 abstract type gRPCException <: Exception end
 
 """
-Can either be returned from the server or raised by the client.
+Exception type that is thrown when something goes wrong while calling an RPC. This can either be triggered by the servers response code or by the client when something fails.
 
-See [here](https://grpc.io/docs/guides/status-codes/) for a more indepth explanation of each code: 
+This exception type has two fields:
+
+1. `message::String`
+2. `grpc_status::Int` - See [here](https://grpc.io/docs/guides/status-codes/) for an indepth explanation of each status.
+
 """
 struct gRPCServiceCallException <: gRPCException
-    grpc_status::Int
     message::String
+    grpc_status::Int
 end
 
 const GRPC_HEADER_SIZE = 5
