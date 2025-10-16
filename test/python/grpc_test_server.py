@@ -15,6 +15,8 @@ class TestServiceServicer(test_pb2_grpc.TestServiceServicer):
     def TestRPC(self, request: test_pb2.TestRequest, context):
 
         if not self.public:
+            assert request.test_response_sz <= 4*1024*1024//8, ">:|"
+
             # For testing
             response_data = np.arange(request.test_response_sz, dtype=np.uint64)
             response_data[:] += 1
