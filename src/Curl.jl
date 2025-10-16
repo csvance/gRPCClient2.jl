@@ -1,6 +1,3 @@
-GRPC_HEADER_SIZE = 5
-
-
 const CURL_VERSION_STR = unsafe_string(curl_version())
 let m = match(r"^libcurl/(\d+\.\d+\.\d+)\b", CURL_VERSION_STR)
     m !== nothing || error("unexpected CURL_VERSION_STR value")

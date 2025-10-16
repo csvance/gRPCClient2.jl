@@ -14,12 +14,12 @@ include("gen/test/test_pb.jl")
     @testset "@async varying request/response" begin
         requests = Vector{gRPCRequest}()
         for i in 1:1000
-            request = grpc_unary_async_request(client, TestRequest(i, zeros(UInt64, i)))
+            request = grpc_async_request(client, TestRequest(i, zeros(UInt64, i)))
             push!(requests, request)
         end 
 
         for (i, request) in enumerate(requests)
-            response = grpc_unary_async_await(client, request)
+            response = grpc_async_await(client, request)
             @test length(response.data) == i
 
             for (di, dv) in enumerate(response.data)
@@ -31,12 +31,12 @@ include("gen/test/test_pb.jl")
     @testset "@async small request/response" begin 
         requests = Vector{gRPCRequest}()
         for i in 1:1000
-            request = grpc_unary_async_request(client, TestRequest(1, zeros(UInt64, 1)))
+            request = grpc_async_request(client, TestRequest(1, zeros(UInt64, 1)))
             push!(requests, request)
         end 
 
         for (i, request) in enumerate(requests)
-            response = grpc_unary_async_await(client, request)
+            response = grpc_async_await(client, request)
             @test length(response.data) == 1
             @test response.data[1] == 1
         end
@@ -46,7 +46,7 @@ include("gen/test/test_pb.jl")
         responses = [TestResponse(Vector{UInt64}()) for _ in 1:1000]
 
         @sync Threads.@threads for i in 1:1000
-            response = grpc_unary_sync(client, TestRequest(1, zeros(UInt64, 1)))
+            response = grpc_sync_request(client, TestRequest(1, zeros(UInt64, 1)))
             responses[i] = response
         end 
 
@@ -60,7 +60,7 @@ include("gen/test/test_pb.jl")
         responses = [TestResponse(Vector{UInt64}()) for _ in 1:1000]
 
         @sync Threads.@threads for i in 1:1000
-            response = grpc_unary_sync(client, TestRequest(i, zeros(UInt64, i)))
+            response = grpc_sync_request(client, TestRequest(i, zeros(UInt64, i)))
             responses[i] = response
         end 
 
@@ -77,9 +77,9 @@ include("gen/test/test_pb.jl")
         client_ms = TestService_TestRPC_Client("localhost", 8001; max_send_message_length=1024, max_recieve_message_length=1024)
 
         # Send too much 
-        @test_throws gRPCServiceCallException grpc_unary_sync(client_ms, TestRequest(1, zeros(UInt64, 1024)))
+        @test_throws gRPCServiceCallException grpc_sync_request(client_ms, TestRequest(1, zeros(UInt64, 1024)))
         # Receive too much
-        @test_throws gRPCServiceCallException grpc_unary_sync(client_ms, TestRequest(1024, zeros(UInt64, 1)))
+        @test_throws gRPCServiceCallException grpc_sync_request(client_ms, TestRequest(1024, zeros(UInt64, 1)))
     end
 
 end

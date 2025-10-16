@@ -39,18 +39,18 @@ TestService_TestRPC_Client(
 client = TestService_TestRPC_Client("localhost", 8001)
 
 # Sync API
-test_response = grpc_unary_sync(client, TestRequest(1))
+test_response = grpc_sync_request(client, TestRequest(1))
 
 # Async API
 requests = Vector{gRPCRequest}()
 for i in 1:10
     push!(
         requests, 
-        grpc_unary_async_request(client, TestRequest(1))
+        grpc_async_request(client, TestRequest(1))
     )
 end
 
 for request in requests
-    response = grpc_unary_async_await(client, request)
+    response = grpc_async_await(client, request)
 end
 ```

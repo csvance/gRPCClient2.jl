@@ -39,7 +39,7 @@ function url(client::gRPCClient)
 end
 
 
-function grpc_unary_async_request(
+function grpc_async_request(
     grpc::gRPCCURL,
     url,
     request;
@@ -88,7 +88,7 @@ const regex_grpc_status = r"grpc-status: ([0-9]+)"
 const regex_grpc_message = Regex("grpc-message: (.*)", "s")
 nullstring(x::Vector{UInt8}) = String(x[1:findfirst(==(0), x) - 1])
 
-function grpc_unary_async_await(grpc::gRPCCURL, req, TResponse)
+function grpc_async_await(grpc::gRPCCURL, req, TResponse)
     wait(req)
 
     # Throw an exception for this request if we have one
@@ -142,10 +142,10 @@ function grpc_unary_async_await(grpc::gRPCCURL, req, TResponse)
 end
 
 
-grpc_unary_async_request(
+grpc_async_request(
     client::gRPCClient{TRequest,TResponse},
     request::TRequest,
-) where {TRequest<:Any,TResponse<:Any} = grpc_unary_async_request(
+) where {TRequest<:Any,TResponse<:Any} = grpc_async_request(
     client.grpc,
     url(client),
     request;
@@ -155,18 +155,18 @@ grpc_unary_async_request(
     max_recieve_message_length = client.max_recieve_message_length
 )
 
-grpc_unary_async_await(
+grpc_async_await(
     client::gRPCClient{TRequest,TResponse},
     request::gRPCRequest,
 ) where {TRequest<:Any,TResponse<:Any} =
-    grpc_unary_async_await(client.grpc, request, TResponse)
+    grpc_async_await(client.grpc, request, TResponse)
 
-grpc_unary_sync(
+grpc_sync_request(
     client::gRPCClient{TRequest,TResponse},
     request::TRequest,
-) where {TRequest<:Any,TResponse<:Any} = grpc_unary_async_await(
+) where {TRequest<:Any,TResponse<:Any} = grpc_async_await(
     client.grpc,
-    grpc_unary_async_request(
+    grpc_async_request(
         client.grpc,
         url(client),
         request;

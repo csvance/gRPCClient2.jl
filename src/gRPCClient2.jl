@@ -23,6 +23,8 @@ struct gRPCServiceCallException <: gRPCException
     message::String
 end
 
+const GRPC_HEADER_SIZE = 5
+
 const GRPC_OK = 0
 const GRPC_CANCELLED = 1
 const GRPC_UNKNOWN = 2
@@ -73,9 +75,9 @@ export grpc_init
 export grpc_shutdown
 export grpc_global_handle
 
-export grpc_unary_async_request
-export grpc_unary_async_await
-export grpc_unary_sync
+export grpc_async_request
+export grpc_async_await
+export grpc_sync_request
 
 export gRPCCURL
 export gRPCRequest
@@ -99,11 +101,11 @@ export gRPCServiceCallException
     client = TestService_TestRPC_Client("172.238.177.88", 8001)
 
     # Sync API
-    test_response = grpc_unary_sync(client, TestRequest(1, Vector{UInt64}()))
+    test_response = grpc_sync_request(client, TestRequest(1, Vector{UInt64}()))
 
     # Async API
-    request = grpc_unary_async_request(client, TestRequest(1, Vector{UInt64}()))
-    response = grpc_unary_async_await(client, request)
+    request = grpc_async_request(client, TestRequest(1, Vector{UInt64}()))
+    response = grpc_async_await(client, request)
 
     end
 end
