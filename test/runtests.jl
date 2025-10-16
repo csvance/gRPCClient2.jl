@@ -82,4 +82,17 @@ include("gen/test/test_pb.jl")
         @test_throws gRPCServiceCallException grpc_sync_request(client_ms, TestRequest(1024, zeros(UInt64, 1)))
     end
 
+    @testset "Async Channels" begin 
+        channel = Channel{gRPCAsyncChannelResponse{TestResponse}}(1000)
+        for i in 1:1000
+            grpc_async_request(client, TestRequest(i, zeros(UInt64, 1)), channel, i)
+        end
+
+        for i in 1:1000
+            r = take!(channel)
+            !isnothing(r.ex) && throw(r.ex)
+            @test r.index == length(r.response.data)
+        end
+    end
+
 end

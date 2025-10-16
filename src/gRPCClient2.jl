@@ -1,6 +1,6 @@
 module gRPCClient2
 
-using PrecompileTools: @setup_workload, @compile_workload    # this is a small dependency
+using PrecompileTools: @setup_workload, @compile_workload
 
 using LibCURL
 using Base.Threads
@@ -43,7 +43,7 @@ const GRPC_UNAVAILABLE = 14
 const GRPC_DATA_LOSS = 15
 const GRPC_UNAUTHENTICATED = 16
 
-const GRPC_CODE_TABLE = Dict{Int64, String}(
+const GRPC_CODE_TABLE = Dict{Int64,String}(
     0 => "OK",
     1 => "CANCELLED",
     2 => "UNKNOWN",
@@ -64,7 +64,10 @@ const GRPC_CODE_TABLE = Dict{Int64, String}(
 )
 
 function Base.showerror(io::IO, e::gRPCServiceCallException)
-    print(io, "gRPCServiceCallException(grpc_status=$(GRPC_CODE_TABLE[e.grpc_status])($(e.grpc_status)), message=\"$(e.message)\")")
+    print(
+        io,
+        "gRPCServiceCallException(grpc_status=$(GRPC_CODE_TABLE[e.grpc_status])($(e.grpc_status)), message=\"$(e.message)\")",
+    )
 end
 
 include("Curl.jl")
@@ -82,6 +85,7 @@ export grpc_sync_request
 export gRPCCURL
 export gRPCRequest
 export gRPCClient
+export gRPCAsyncChannelResponse
 
 export gRPCException
 export gRPCServiceCallException
@@ -89,20 +93,20 @@ export gRPCServiceCallException
 @setup_workload begin
     @compile_workload begin
 
-    include("../test/gen/test/test_pb.jl")
+        include("../test/gen/test/test_pb.jl")
 
-    # Initialize the gRPC package - grpc_shutdown() does the opposite for use with Revise.
-    grpc_init()
+        # Initialize the gRPC package - grpc_shutdown() does the opposite for use with Revise.
+        grpc_init()
 
-    # We don't have a Julia gRPC server so call my Linode's public gRPC endpoint
-    client = TestService_TestRPC_Client("172.238.177.88", 8001)
+        # We don't have a Julia gRPC server so call my Linode's public gRPC endpoint
+        client = TestService_TestRPC_Client("172.238.177.88", 8001)
 
-    # Sync API
-    test_response = grpc_sync_request(client, TestRequest(1, Vector{UInt64}()))
+        # Sync API
+        test_response = grpc_sync_request(client, TestRequest(1, Vector{UInt64}()))
 
-    # Async API
-    request = grpc_async_request(client, TestRequest(1, Vector{UInt64}()))
-    response = grpc_async_await(client, request)
+        # Async API
+        request = grpc_async_request(client, TestRequest(1, Vector{UInt64}()))
+        response = grpc_async_await(client, request)
 
     end
 end

@@ -21,8 +21,8 @@ function write_callback(
         if size_after_write > req.max_recieve_message_length + GRPC_HEADER_SIZE
             # This will be thrown by the thread waiting on the request to finish
             req.ex = gRPCServiceCallException(
-                GRPC_RESOURCE_EXHAUSTED, 
-                "effective response message size larger than max_recieve_message_length: $(size_after_write) > $(req.max_recieve_message_length + GRPC_HEADER_SIZE)"
+                GRPC_RESOURCE_EXHAUSTED,
+                "effective response message size larger than max_recieve_message_length: $(size_after_write) > $(req.max_recieve_message_length + GRPC_HEADER_SIZE)",
             )
             # Returning anything other than n causes curl to abort this connection
             return typemax(Csize_t)
@@ -41,8 +41,8 @@ function write_callback(
             if req.response_length > req.max_recieve_message_length
                 # This will be thrown by the thread waiting on the request to finish
                 req.ex = gRPCServiceCallException(
-                    GRPC_RESOURCE_EXHAUSTED, 
-                    "declared message length-prefix larger than max_recieve_message_length: $(req.response_length) > $(req.max_recieve_message_length)"
+                    GRPC_RESOURCE_EXHAUSTED,
+                    "declared message length-prefix larger than max_recieve_message_length: $(req.response_length) > $(req.max_recieve_message_length)",
                 )
                 # Returning anything other than n causes curl to abort this connection
                 return typemax(Csize_t)
@@ -52,11 +52,12 @@ function write_callback(
             seekend(req.response)
         end
 
-        if req.response_read_header && size_after_write > req.response_length + GRPC_HEADER_SIZE
+        if req.response_read_header &&
+           size_after_write > req.response_length + GRPC_HEADER_SIZE
             # This will be thrown by the thread waiting on the request to finish
             req.ex = gRPCServiceCallException(
-                GRPC_RESOURCE_EXHAUSTED, 
-                "effective response message size larger than declared prefix-length: $(size_after_write) > $(req.response_length + GRPC_HEADER_SIZE)"
+                GRPC_RESOURCE_EXHAUSTED,
+                "effective response message size larger than declared prefix-length: $(size_after_write) > $(req.response_length + GRPC_HEADER_SIZE)",
             )
             # Returning anything other than n causes curl to abort this connection
             return typemax(Csize_t)
@@ -127,17 +128,19 @@ mutable struct gRPCRequest
     request_ptr::Int64
     max_send_message_length::Int64
     max_recieve_message_length::Int64
-    ex::Union{Nothing, Exception}
+    ex::Union{Nothing,Exception}
     response_read_header::Bool
-    response_compressed::Bool 
+    response_compressed::Bool
     response_length::UInt32
 
     function gRPCRequest(
-        grpc, url, request; 
-        deadline = 10, 
+        grpc,
+        url,
+        request;
+        deadline = 10,
         keepalive = 60,
-        max_send_message_length = 4*1024*1024,
-        max_recieve_message_length = 4*1024*1024
+        max_send_message_length = 4 * 1024 * 1024,
+        max_recieve_message_length = 4 * 1024 * 1024,
     )
         easy_handle = curl_easy_init()
 
@@ -210,7 +213,7 @@ mutable struct gRPCRequest
             nothing,
             false,
             false,
-            0
+            0,
         )
 
         req_p = pointer_from_objref(req)
