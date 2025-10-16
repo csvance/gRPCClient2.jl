@@ -62,7 +62,7 @@ const GRPC_CODE_TABLE = Dict{Int64, String}(
 )
 
 function Base.showerror(io::IO, e::gRPCServiceCallException)
-    print(io, "gRPCServiceCallException($(GRPC_CODE_TABLE[e.grpc_status])($(e.grpc_status)), \"$(e.message)\")")
+    print(io, "gRPCServiceCallException(grpc_status=$(GRPC_CODE_TABLE[e.grpc_status])($(e.grpc_status)), message=\"$(e.message)\")")
 end
 
 include("Curl.jl")
