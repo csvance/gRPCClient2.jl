@@ -472,7 +472,6 @@ function close(grpc::gRPCCURL)
     lock(grpc.lock) do
         # Already closed
         if grpc.multi == Ptr{Cvoid}(0)
-            @warn "close() called on already closed gRPCCURL struct"
             return
         end
 
@@ -501,7 +500,6 @@ end
 function open(grpc::gRPCCURL)
     lock(grpc.lock) do
         if grpc.multi != Ptr{Cvoid}(0)
-            @warn "open() called on already opened gRPCCURL struct"
             return
         end
 

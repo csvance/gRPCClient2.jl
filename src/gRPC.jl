@@ -1,28 +1,8 @@
-GRPC_OK = 0
-GRPC_CANCELLED = 1
-GRPC_UNKNOWN = 2
-GRPC_INVALID_ARGUMENT = 3
-GRPC_DEADLINE_EXCEEDED = 4
-GRPC_NOT_FOUND = 5
-GRPC_ALREADY_EXISTS = 6
-GRPC_PERMISSION_DENIED = 7
-GRPC_RESOURCE_EXHAUSTED = 8
-GRPC_FAILED_PRECONDITION = 9
-GRPC_ABORTED = 10
-GRPC_OUT_OF_RANGE = 11
-GRPC_UNIMPLEMENTED = 12
-GRPC_INTERNAL = 13
-GRPC_UNAVAILABLE = 14
-GRPC_DATA_LOSS = 15
-GRPC_UNAUTHENTICATED = 16
-
-
 const _grpc = gRPCCURL()
 
 grpc_init() = open(_grpc)
 grpc_shutdown() = close(_grpc)
 grpc_global_handle() = _grpc
-
 
 struct gRPCClient{TRequest,TResponse}
     grpc::gRPCCURL
@@ -40,7 +20,7 @@ struct gRPCClient{TRequest,TResponse}
         port,
         path;
         secure = false,
-        grpc = _grpc,
+        grpc = grpc_global_handle(),
         deadline = 10,
         keepalive = 60,
         max_send_message_length = 4*1024*1024,
@@ -106,6 +86,7 @@ end
 
 const regex_grpc_status = r"grpc-status: ([0-9]+)"
 const regex_grpc_message = Regex("grpc-message: (.*)", "s")
+nullstring(x::Vector{UInt8}) = String(x[1:findfirst(==(0), x) - 1])
 
 function grpc_unary_async_await(grpc::gRPCCURL, req, TResponse)
     wait(req)
@@ -118,7 +99,7 @@ function grpc_unary_async_await(grpc::gRPCCURL, req, TResponse)
     req.code != CURLE_OK && throw(
         gRPCServiceCallException(
             GRPC_INTERNAL,
-            "libCURL returned easy request code $(req.code)",
+            nullstring(req.errbuf),
         ),
     )
 
