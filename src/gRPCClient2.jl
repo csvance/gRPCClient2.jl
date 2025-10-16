@@ -95,25 +95,6 @@ export gRPCServiceCallException
     # Initialize the gRPC package - grpc_shutdown() does the opposite for use with Revise.
     grpc_init()
 
-    # Client stubs like this will be automatically created by ProtoBuf code generation in the near future
-    TestService_TestRPC_Client(
-        host, port;
-        secure=false,
-        grpc=grpc_global_handle(),
-        deadline=10,
-        keepalive=60,
-        max_send_message_length = 4*1024*1024,
-        max_recieve_message_length = 4*1024*1024,
-    ) = gRPCClient{TestRequest, TestResponse}(
-        host, port, "/test.TestService/TestRPC";
-        secure=secure,
-        grpc=grpc,
-        deadline=deadline,
-        keepalive=keepalive,
-        max_send_message_length = max_send_message_length,
-        max_recieve_message_length = max_recieve_message_length,
-    )
-
     # We don't have a Julia gRPC server so call my Linode's public gRPC endpoint
     client = TestService_TestRPC_Client("172.238.177.88", 8001)
 
