@@ -170,7 +170,7 @@ end
 
 
 """
-    grpc_async_request(client::gRPCClient{TRequest,TResponse}, request::TRequest)
+    grpc_async_request(client::gRPCClient{TRequest,TResponse}, request::TRequest) where {TRequest<:Any,TResponse<:Any}
 
 Initiate an asynchronous gRPC request: send the request to the server and then immediately return a `gRPCRequest` object without waiting for the response. 
 In order to wait on / retrieve the result once its ready, call `grpc_async_await`.
@@ -197,7 +197,7 @@ mutable struct gRPCAsyncChannelResponse{TResponse}
 end
 
 """
-    grpc_async_request(client::gRPCClient{TRequest,TResponse}, request::TRequest, channel::Channel{gRPCAsyncChannelResponse{TResponse}}, index::Int64)
+    grpc_async_request(client::gRPCClient{TRequest,TResponse}, request::TRequest, channel::Channel{gRPCAsyncChannelResponse{TResponse}}, index::Int64) where {TRequest<:Any,TResponse<:Any}
 
 Initiate an asynchronous gRPC request: send the request to the server and then immediately return. When the request is complete a background task will put the response in the provided channel.
 This has the advantage over the request / await patern in that you can handle responses immediately after they are recieved in any order.
@@ -251,7 +251,7 @@ end
 
 
 """
-    grpc_async_await(client::gRPCClient{TRequest,TResponse}, request::gRPCRequest)
+    grpc_async_await(client::gRPCClient{TRequest,TResponse}, request::gRPCRequest) where {TRequest<:Any,TResponse<:Any}
 
 Wait for the request to complete and return the response when it is ready. Throws any exceptions that were encountered during handling of the request.
 """
@@ -262,7 +262,7 @@ grpc_async_await(
 
 
 """
-    grpc_sync_request(client::gRPCClient{TRequest,TResponse}, request::TRequest)
+    grpc_sync_request(client::gRPCClient{TRequest,TResponse}, request::TRequest) where {TRequest<:Any,TResponse<:Any}
 
 Do a synchronous gRPC request: send the request and wait for the response before returning it. 
 Under the hood this just calls `grpc_async_request` and `grpc_async_await`
