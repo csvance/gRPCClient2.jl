@@ -23,7 +23,7 @@ The client is missing a few features which will be added over time:
 All examples in the documentation are run against a test server written in Python. You can run it by doing the following:
 
 ```bash
-# Install uv package manager (https://docs.astral.sh/uv/#installation)
+# Install uv package manager - see https://docs.astral.sh/uv/#installation for more details
 curl -LsSf https://astral.sh/uv/install.sh | sh
 
 # Change directory to the python test server project
@@ -35,6 +35,8 @@ uv run grpc_test_server.py
 ```
 
 ### Code Generation
+
+**Note: this is currently disabled due to blocking issues in ProtoBuf.jl. See [here](https://github.com/JuliaIO/ProtoBuf.jl/pull/283) for more information.**
 
 gRPCClient2.jl integrates with ProtoBuf.jl to automatically generate Julia client stubs for calling gRPC. 
 
@@ -74,6 +76,12 @@ for request in requests
     response = grpc_async_await(client, request)
     @info response
 end
+```
+
+## Exceptions
+
+```@docs
+gRPCServiceCallException
 ```
 
 ## Package Initialization / Shutdown

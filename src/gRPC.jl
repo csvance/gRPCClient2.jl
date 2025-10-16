@@ -3,21 +3,21 @@ const _grpc = gRPCCURL()
 """
     grpc_init()
 
-Initializes the global gRPCCURL state. This should be called once before making gRPC calls. There is no harm in calling this more than once (ie by different packages/dependencies)
+Initializes the global `gRPCCURL` state. This should be called once before making gRPC calls. There is no harm in calling this more than once (ie by different packages/dependencies)
 """
 grpc_init() = open(_grpc)
 
 """
     grpc_shutdown()
 
-Shuts down the global gRPCCURL state. This neatly cleans up all active connections and requests. Useful for calling during development with Revise.
+Shuts down the global `gRPCCURL` state. This neatly cleans up all active connections and requests. Useful for calling during development with Revise.
 """
 grpc_shutdown() = close(_grpc)
 
 """
     grpc_global_handle()
 
-Returns the global gRPCCURL state which contains a libCURL multi. By default all gRPC functions use this multi in order to ensure that HTTP/2 multiplexing happens where possible.
+Returns the global `gRPCCURL` state which contains a libCURL multi handle. By default all gRPC functions use this multi in order to ensure that HTTP/2 multiplexing happens where possible.
 """
 grpc_global_handle() = _grpc
 

@@ -245,7 +245,8 @@ mutable struct gRPCRequest
             if !grpc.running
                 curl_easy_cleanup(easy_handle)
                 throw(
-                    ErrorException(
+                    gRPCServiceCallException(
+                        GRPC_FAILED_PRECONDITION,
                         "Tried to make a request when the provided grpc handle is shutdown",
                     ),
                 )

@@ -18,6 +18,11 @@ import ProtoBuf.CodeGenerators.ServiceType,
 
 abstract type gRPCException <: Exception end
 
+"""
+Can either be returned from the server or raised by the client.
+
+See [here](https://grpc.io/docs/guides/status-codes/) for a more indepth explanation of each code: 
+"""
 struct gRPCServiceCallException <: gRPCException
     grpc_status::Int
     message::String
