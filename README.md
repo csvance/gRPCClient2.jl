@@ -6,7 +6,7 @@ gRPCClient2.jl aims to be a production grade gRPC client emphasizing performance
 
 **Note that the package is in a pre-release state and external interfaces / API are unstable.**
 
-## Usage
+## Basic Usage
 
 ```julia
 using gRPCClient2
@@ -35,3 +35,7 @@ for request in requests
     response = grpc_async_await(client, request)
 end
 ```
+
+## Documentation
+
+The documentation for `gRPCClient2.jl` be found [here](https://csvance.github.io/gRPCClient2.jl).
