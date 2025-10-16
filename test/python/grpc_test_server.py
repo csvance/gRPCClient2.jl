@@ -31,11 +31,20 @@ def serve(public: bool = False):
     test_pb2_grpc.add_TestServiceServicer_to_server(
         TestServiceServicer(public=public), server
     )
-    server.add_insecure_port("[::]:8001")
+    if public:
+        bind_address = "[::]:8001"
+        logging.info("Listening on %s in public mode" % bind_address)
+        logging.info("(len(response.data) will always be 1)")
+        server.add_insecure_port(bind_address)
+    else:
+        bind_address = "127.0.0.1:8001"
+        logging.info("Listening on %s in test mode" % bind_address)
+        server.add_insecure_port(bind_address)
+
     server.start()
     server.wait_for_termination()
 
 
 if __name__ == "__main__":
-    logging.basicConfig()
-    serve(public=sys.argv[1] == 'public')
+    logging.basicConfig(level=logging.DEBUG)
+    serve(public=len(sys.argv) > 1 and sys.argv[1] == 'public')
