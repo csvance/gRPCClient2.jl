@@ -40,7 +40,7 @@ uv run grpc_test_server.py
 
 gRPCClient2.jl integrates with ProtoBuf.jl to automatically generate Julia client stubs for calling gRPC. 
 
-```
+```julia
 using ProtoBuf
 using gRPCClient2
 

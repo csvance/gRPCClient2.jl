@@ -202,7 +202,7 @@ end
 Initiate an asynchronous gRPC request: send the request to the server and then immediately return. When the request is complete a background task will put the response in the provided channel.
 This has the advantage over the request / await patern in that you can handle responses immediately after they are recieved in any order.
 
-```
+```julia
 using gRPCClient2
 
 grpc_init()
