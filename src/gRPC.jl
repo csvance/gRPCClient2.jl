@@ -202,20 +202,30 @@ end
 Initiate an asynchronous gRPC request: send the request to the server and then immediately return. When the request is complete a background task will put the response in the provided channel.
 This has the advantage over the request / await patern in that you can handle responses immediately after they are recieved in any order.
 
-Example:
-
 ```
-N = 100
+using gRPCClient2
 
-channel = Channel{gRPCAsyncChannelResponse{TResponse}}(N)
+grpc_init()
+include("test/gen/test/test_pb.jl")
 
-for (index, request) in [TestRequest(i) for i in 1:N]
+# Connect to the test server
+client = TestService_TestRPC_Client("localhost", 8001)
+
+N = 10
+
+channel = Channel{gRPCAsyncChannelResponse{TestResponse}}(N)
+
+for (index, request) in enumerate([TestRequest(i, zeros(UInt64, i)) for i in 1:N])
      grpc_async_request(client, request, channel, index)
 end
 
 for i in 1:N
-    async_response = take!(channel)
-    !isnothing(async_response.ex) && throw(async_response.ex)
+    cr = take!(channel)
+    # Check if an exception was thrown, if so throw it here
+    !isnothing(cr.ex) && throw(cr.ex)
+
+    # If this does not hold true, then the requests and responses have gotten mixed up.
+    @assert length(cr.response.data) == cr.index
 end
 
 ```

@@ -18,6 +18,22 @@ The client is missing a few features which will be added over time:
 
 ## Getting Started
 
+### Test gRPC Server
+
+All examples in the documentation are run against a test server written in Python. You can run it by doing the following:
+
+```bash
+# Install uv package manager (https://docs.astral.sh/uv/#installation)
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Change directory to the python test server project
+cd test/python
+
+# Run the test server
+uv run grpc_test_server.py
+
+```
+
 ### Code Generation
 
 gRPCClient2.jl integrates with ProtoBuf.jl to automatically generate Julia client stubs for calling gRPC. 
@@ -30,16 +46,16 @@ using gRPCClient2
 protojl("proto/test.proto", ".", "gen")
 ```
 
-## Making Requests
+### Making Requests with gRPCClient2.jl
 
 ```julia
 using gRPCClient2
 
 # Include the generated bindings
-include("../../test/gen/test/test_pb.jl")
+include("test/gen/test/test_pb.jl")
 
 # Create a client bound to a specific RPC
-client = TestService_TestRPC_Client("172.238.177.88", 8001)
+client = TestService_TestRPC_Client("localhost", 8001)
 
 # Make a syncronous request and get back a TestResponse
 response = grpc_sync_request(client, TestRequest(1, zeros(UInt64, 1)))
