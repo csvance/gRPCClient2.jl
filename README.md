@@ -8,4 +8,4 @@ gRPCClient2.jl aims to be a production grade gRPC client emphasizing performance
 
 ## Documentation
 
-The documentation for `gRPCClient2.jl` be found [here](https://csvance.github.io/gRPCClient2.jl).
+The documentation for `gRPCClient2.jl` can be found [here](https://csvance.github.io/gRPCClient2.jl).
