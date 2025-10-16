@@ -45,7 +45,7 @@ using ProtoBuf
 using gRPCClient2
 
 # Creates Julia bindings for the messages and RPC defined in test.proto
-protojl("proto/test.proto", ".", "gen")
+protojl("test/proto/test.proto", ".", "test/gen")
 ```
 
 ### Making Requests with gRPCClient2.jl
