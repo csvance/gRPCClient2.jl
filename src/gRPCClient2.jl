@@ -83,9 +83,6 @@ export gRPCCURL
 export gRPCRequest
 export gRPCClient
 
-export open
-export close
-
 export gRPCException
 export gRPCServiceCallException
 
