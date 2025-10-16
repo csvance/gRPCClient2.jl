@@ -9,6 +9,8 @@ GRPC_PERMISSION_DENIED = 7
 GRPC_RESOURCE_EXHAUSTED = 8
 GRPC_FAILED_PRECONDITION = 9
 GRPC_ABORTED = 10
+GRPC_OUT_OF_RANGE = 11
+GRPC_UNIMPLEMENTED = 12
 GRPC_INTERNAL = 13
 GRPC_UNAVAILABLE = 14
 GRPC_DATA_LOSS = 15
@@ -136,11 +138,24 @@ function grpc_unary_async_await(grpc::gRPCCURL, req, TResponse)
     grpc_status != GRPC_OK && throw(gRPCServiceCallException(grpc_status, grpc_message))
 
     seek(req.response, 0)
-
-    is_compressed = read(req.response, UInt8) > 0
-    # TODO: raise some sort of "NotImplementedException" if compressed is set
-    length_prefix = ntoh(read(req.response, UInt32))
-    # TODO: validate length 
+    
+    if (is_compressed = read(req.response, UInt8) > 0)
+        throw(
+            gRPCServiceCallException(
+                GRPC_UNIMPLEMENTED,
+                "Compression flag was set in recieved message but compression is not supported."
+            )
+        )
+    end
+    
+    if (length_prefix = ntoh(read(req.response, UInt32))) != req.response.size - GRPC_HEADER_SIZE
+        throw(
+            gRPCServiceCallException(
+                GRPC_RESOURCE_EXHAUSTED,
+                "effective response message size larger than declared prefix-length: $(length_prefix) > $(req.response.size - GRPC_HEADER_SIZE)"
+            )
+        )
+    end
 
     return decode(ProtoDecoder(req.response), TResponse)
 end
