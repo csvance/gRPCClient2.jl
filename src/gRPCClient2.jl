@@ -23,13 +23,13 @@ Exception type that is thrown when something goes wrong while calling an RPC. Th
 
 This exception type has two fields:
 
-1. `message::String`
-2. `grpc_status::Int` - See [here](https://grpc.io/docs/guides/status-codes/) for an indepth explanation of each status.
+1. `grpc_status::Int` - See [here](https://grpc.io/docs/guides/status-codes/) for an indepth explanation of each status.
+2. `message::String`
 
 """
 struct gRPCServiceCallException <: gRPCException
-    message::String
     grpc_status::Int
+    message::String
 end
 
 const GRPC_HEADER_SIZE = 5
