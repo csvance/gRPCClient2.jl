@@ -79,4 +79,4 @@ These run forever, and are useful to help identify any stability issues or resou
 
 ## Acknowledgement
 
-This package is essentially a rewrite of [gRPCClient.jl](https://github.com/JuliaComputing/gRPCClient.jl) that uses a heavily modified version of (Downloads.jl)[https://github.com/JuliaLang/Downloads.jl] to interface with [LibCURL.jl](https://github.com/JuliaWeb/LibCURL.jl). Without the above packages to build ontop of this effort would have been a far more signifigant undertaking, so thank you to all of the authors and maintainers who made this possible.
+This package is essentially a rewrite of [gRPCClient.jl](https://github.com/JuliaComputing/gRPCClient.jl) that uses a heavily modified version of [Downloads.jl](https://github.com/JuliaLang/Downloads.jl) to interface with [LibCURL.jl](https://github.com/JuliaWeb/LibCURL.jl). Without the above packages to build ontop of this effort would have been a far more signifigant undertaking, so thank you to all of the authors and maintainers who made this possible.
