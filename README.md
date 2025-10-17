@@ -39,7 +39,7 @@ BenchmarkTools.Trial: 36 samples with 1 evaluation per sample.
  Memory estimate: 4.78 MiB, allocs estimate: 97808.
  ```
 
- The mean RPC overhead time for smol is ~140 μs per request.
+ The mean RPC throughput is 7151 request/sec (139 μs/request).
 
  ### (32, 224, 224) UInt8 Batch Inference
 
@@ -60,7 +60,7 @@ BenchmarkTools.Trial: 37 samples with 1 evaluation per sample.
  Memory estimate: 222.25 MiB, allocs estimate: 25909.
 ```
 
-The mean RPC overhead is ~1.35 ms per request.
+The mean RPC throughput is ~738 request/sec (1.35 ms/request).
 
 ## Stress Testing
 
