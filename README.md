@@ -39,7 +39,7 @@ BenchmarkTools.Trial: 36 samples with 1 evaluation per sample.
  Memory estimate: 4.78 MiB, allocs estimate: 97808.
  ```
 
- The mean RPC overhead time for smol is ~140 μs per request.
+ The mean RPC throughput is 7151 request/sec (139 μs/request).
 
  ### (32, 224, 224) UInt8 Batch Inference
 
@@ -60,7 +60,7 @@ BenchmarkTools.Trial: 37 samples with 1 evaluation per sample.
  Memory estimate: 222.25 MiB, allocs estimate: 25909.
 ```
 
-The mean RPC overhead is ~1.35 ms per request.
+The mean RPC throughput is ~738 request/sec (1.35 ms/request).
 
 ## Stress Testing
 
@@ -76,3 +76,7 @@ Stress tests are available corresponding to each benchmark listed above:
 - `stress_workload_32_224_224_uint8()`
 
 These run forever, and are useful to help identify any stability issues or resource leaks.
+
+## Acknowledgement
+
+This package is essentially a rewrite of [gRPCClient.jl](https://github.com/JuliaComputing/gRPCClient.jl) that uses a heavily modified version of [Downloads.jl](https://github.com/JuliaLang/Downloads.jl) to interface with [LibCURL.jl](https://github.com/JuliaWeb/LibCURL.jl). Without the above packages to build ontop of this effort would have been a far more signifigant undertaking, so thank you to all of the authors and maintainers who made this possible.
