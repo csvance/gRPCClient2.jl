@@ -122,7 +122,10 @@ mutable struct gRPCRequest
     function gRPCRequest(
         grpc,
         url,
-        request;
+        request::IOBuffer,
+        response::IOBuffer,
+        request_c::Union{Nothing, Channel{IOBuffer}},
+        response_c::Union{Nothing, Channel{IOBuffer}};
         deadline = 10,
         keepalive = 60,
         max_send_message_length = 4 * 1024 * 1024,
@@ -187,14 +190,15 @@ mutable struct gRPCRequest
         curl_easy_setopt(easy_handle, CURLOPT_TCP_KEEPALIVE, Clong(1))
         curl_easy_setopt(easy_handle, CURLOPT_TCP_KEEPINTVL, keepalive)
         curl_easy_setopt(easy_handle, CURLOPT_TCP_KEEPIDLE, keepalive)
+
         req = new(
             easy_handle,
             grpc.multi,
             http_url,
             request,
-            IOBuffer(),
-            nothing,
-            nothing,
+            response,
+            request_c,
+            response_c,
             UInt32(0),
             Event(),
             zeros(UInt8, CURL_ERROR_SIZE),
