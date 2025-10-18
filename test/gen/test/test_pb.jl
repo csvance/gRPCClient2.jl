@@ -82,7 +82,7 @@ TestService_TestRPC_Client(
 	keepalive=60,
     max_send_message_length = 4*1024*1024,
     max_recieve_message_length = 4*1024*1024,
-) = gRPCClient{TestRequest, TestResponse}(
+) = gRPCClient{TestRequest, false, TestResponse, false}(
 	host, port, "/test.TestService/TestRPC";
 	secure=secure,
 	grpc=grpc,

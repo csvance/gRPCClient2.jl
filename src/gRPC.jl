@@ -21,7 +21,7 @@ Returns the global `gRPCCURL` state which contains a libCURL multi handle. By de
 """
 grpc_global_handle() = _grpc
 
-struct gRPCClient{TRequest,TResponse}
+struct gRPCClient{TRequest,SRequest,TResponse,SResponse}
     grpc::gRPCCURL
     host::String
     port::Int64
@@ -32,7 +32,7 @@ struct gRPCClient{TRequest,TResponse}
     max_send_message_length::Int64
     max_recieve_message_length::Int64
 
-    gRPCClient{TRequest,TResponse}(
+    function gRPCClient{TRequest,SRequest,TResponse,SResponse}(
         host,
         port,
         path;
@@ -42,17 +42,20 @@ struct gRPCClient{TRequest,TResponse}
         keepalive = 60,
         max_send_message_length = 4 * 1024 * 1024,
         max_recieve_message_length = 4 * 1024 * 1024,
-    ) where {TRequest<:Any,TResponse<:Any} = new(
-        grpc,
-        host,
-        port,
-        path,
-        secure,
-        deadline,
-        keepalive,
-        max_send_message_length,
-        max_recieve_message_length,
-    )
+    ) where {TRequest<:Any,SRequest,TResponse<:Any,SResponse}     
+        new(
+            grpc,
+            host,
+            port,
+            path,
+            secure,
+            deadline,
+            keepalive,
+            max_send_message_length,
+            max_recieve_message_length,
+        )
+    end
+
 end
 
 function url(client::gRPCClient)
@@ -167,9 +170,9 @@ In order to wait on / retrieve the result once its ready, call `grpc_async_await
 This is ideal when you need to send many requests in parallel and waiting on each response before sending the next request would things down.
 """
 grpc_async_request(
-    client::gRPCClient{TRequest,TResponse},
+    client::gRPCClient{TRequest,SRequest,TResponse,SResponse},
     request::TRequest,
-) where {TRequest<:Any,TResponse<:Any} = grpc_async_request(
+) where {TRequest<:Any,SRequest,TResponse<:Any,SResponse} = grpc_async_request(
     client.grpc,
     url(client),
     request;
@@ -221,11 +224,11 @@ end
 ```
 """
 function grpc_async_request(
-    client::gRPCClient{TRequest,TResponse},
+    client::gRPCClient{TRequest,SRequest,TResponse,SResponse},
     request::TRequest,
     channel::Channel{gRPCAsyncChannelResponse{TResponse}},
     index::Int64,
-) where {TRequest<:Any,TResponse<:Any}
+) where {TRequest<:Any,SRequest,TResponse<:Any,SResponse}
 
     request = grpc_async_request(
         client.grpc,
@@ -235,7 +238,7 @@ function grpc_async_request(
         keepalive = client.keepalive,
         max_send_message_length = client.max_send_message_length,
         max_recieve_message_length = client.max_recieve_message_length,
-    )
+    ) 
 
     Threads.@spawn begin
         try
@@ -256,9 +259,9 @@ end
 Wait for the request to complete and return the response when it is ready. Throws any exceptions that were encountered during handling of the request.
 """
 grpc_async_await(
-    client::gRPCClient{TRequest,TResponse},
+    client::gRPCClient{TRequest,SRequest,TResponse,SResponse},
     request::gRPCRequest,
-) where {TRequest<:Any,TResponse<:Any} = grpc_async_await(request, TResponse)
+) where {TRequest<:Any,SRequest,TResponse<:Any,SResponse} = grpc_async_await(request, TResponse)
 
 
 """
@@ -268,9 +271,9 @@ Do a synchronous gRPC request: send the request and wait for the response before
 Under the hood this just calls `grpc_async_request` and `grpc_async_await`
 """
 grpc_sync_request(
-    client::gRPCClient{TRequest,TResponse},
+    client::gRPCClient{TRequest,SRequest,TResponse,SResponse},
     request::TRequest,
-) where {TRequest<:Any,TResponse<:Any} = grpc_async_await(
+) where {TRequest<:Any,SRequest,TResponse<:Any,SResponse} = grpc_async_await(
     grpc_async_request(
         client.grpc,
         url(client),
