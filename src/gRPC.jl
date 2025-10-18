@@ -144,27 +144,14 @@ function grpc_async_await(req::gRPCRequest, TResponse)
 
     grpc_status != GRPC_OK && throw(gRPCServiceCallException(grpc_status, grpc_message))
 
-    seek(req.response, 0)
-
-    if (is_compressed = read(req.response, UInt8) > 0)
-        throw(
-            gRPCServiceCallException(
-                GRPC_UNIMPLEMENTED,
-                "Compression flag was set in recieved message but compression is not supported.",
-            ),
-        )
+    if req.response_compressed
+        throw(gRPCServiceCallException(
+            GRPC_UNIMPLEMENTED,
+            "Response was compressed but compression is not currently supported."
+        ))
     end
 
-    if (length_prefix = ntoh(read(req.response, UInt32))) !=
-       req.response.size - GRPC_HEADER_SIZE
-        throw(
-            gRPCServiceCallException(
-                GRPC_RESOURCE_EXHAUSTED,
-                "effective response message size larger than declared prefix-length: $(length_prefix) > $(req.response.size - GRPC_HEADER_SIZE)",
-            ),
-        )
-    end
-
+    seekstart(req.response)
     return decode(ProtoDecoder(req.response), TResponse)
 end
 
