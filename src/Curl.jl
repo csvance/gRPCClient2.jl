@@ -69,7 +69,6 @@ function handle_write(req, buf::Vector{UInt8})
             buf_leftover = unsafe_wrap(Array, pointer(buf)+message_bytes_left, (length(leftover_bytes),))
             return n + handle_write(req, buf_leftover)
         else
-            @async @info "buf=$(length(buf)) message_bytes_left=$(message_bytes_left))"
             if length(buf) != message_bytes_left
                 req.ex = gRPCServiceCallException(
                     GRPC_RESOURCE_EXHAUSTED,
