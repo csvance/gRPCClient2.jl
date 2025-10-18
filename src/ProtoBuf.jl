@@ -5,12 +5,6 @@ function codegen(io, t::ServiceType, ctx::Context)
 
 
     for rpc in t.rpcs
-        @info rpc
-        if rpc.request_stream || rpc.response_stream
-            println(io, "# Service $(safename(rpc)) uses streaming, not yet supported.")
-            continue
-        end
-
         rpc_path = "/$namespace.$service_name/$(rpc.name)"
 
         request_type = rpc.request_type.name
@@ -31,7 +25,7 @@ function codegen(io, t::ServiceType, ctx::Context)
         println(io, "\tkeepalive=60,")
         println(io, "\tmax_send_message_length = 4*1024*1024,")
         println(io, "\tmax_recieve_message_length = 4*1024*1024,")
-        println(io, ") = gRPCClient{$request_type, $response_type}(")
+        println(io, ") = gRPCClient{$request_type, $(rpc.request_stream), $response_type, $(rpc.response_stream)}(")
         println(io, "\thost, port, \"$rpc_path\";")
         println(io, "\tsecure=secure,")
         println(io, "\tgrpc=grpc,")
@@ -39,7 +33,7 @@ function codegen(io, t::ServiceType, ctx::Context)
         println(io, "\tkeepalive=keepalive,")
         println(io, "\tmax_send_message_length=max_send_message_length,")
         println(io, "\tmax_recieve_message_length=max_recieve_message_length,")
-        println(io, ")")
+        println(io, ")\n")
     end
 end
 =#

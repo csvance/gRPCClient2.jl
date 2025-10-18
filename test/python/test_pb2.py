@@ -24,7 +24,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\ntest.proto\x12\x04test\"5\n\x0bTestRequest\x12\x18\n\x10test_response_sz\x18\x01 \x01(\x04\x12\x0c\n\x04\x64\x61ta\x18\x02 \x03(\x04\"\x1c\n\x0cTestResponse\x12\x0c\n\x04\x64\x61ta\x18\x01 \x03(\x04\x32\x41\n\x0bTestService\x12\x32\n\x07TestRPC\x12\x11.test.TestRequest\x1a\x12.test.TestResponse\"\x00\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\ntest.proto\x12\x04test\"5\n\x0bTestRequest\x12\x18\n\x10test_response_sz\x18\x01 \x01(\x04\x12\x0c\n\x04\x64\x61ta\x18\x02 \x03(\x04\"\x1c\n\x0cTestResponse\x12\x0c\n\x04\x64\x61ta\x18\x01 \x03(\x04\x32\x90\x02\n\x0bTestService\x12\x32\n\x07TestRPC\x12\x11.test.TestRequest\x1a\x12.test.TestResponse\"\x00\x12@\n\x13TestServerStreamRPC\x12\x11.test.TestRequest\x1a\x12.test.TestResponse\"\x00\x30\x01\x12@\n\x13TestClientStreamRPC\x12\x11.test.TestRequest\x1a\x12.test.TestResponse\"\x00(\x01\x12I\n\x1aTestBidirectionalStreamRPC\x12\x11.test.TestRequest\x1a\x12.test.TestResponse\"\x00(\x01\x30\x01\x62\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -35,6 +35,6 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_TESTREQUEST']._serialized_end=73
   _globals['_TESTRESPONSE']._serialized_start=75
   _globals['_TESTRESPONSE']._serialized_end=103
-  _globals['_TESTSERVICE']._serialized_start=105
-  _globals['_TESTSERVICE']._serialized_end=170
+  _globals['_TESTSERVICE']._serialized_start=106
+  _globals['_TESTSERVICE']._serialized_end=378
 # @@protoc_insertion_point(module_scope)
