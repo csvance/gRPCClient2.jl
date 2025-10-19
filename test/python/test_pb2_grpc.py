@@ -39,6 +39,21 @@ class TestServiceStub(object):
                 request_serializer=test__pb2.TestRequest.SerializeToString,
                 response_deserializer=test__pb2.TestResponse.FromString,
                 _registered_method=True)
+        self.TestServerStreamRPC = channel.unary_stream(
+                '/test.TestService/TestServerStreamRPC',
+                request_serializer=test__pb2.TestRequest.SerializeToString,
+                response_deserializer=test__pb2.TestResponse.FromString,
+                _registered_method=True)
+        self.TestClientStreamRPC = channel.stream_unary(
+                '/test.TestService/TestClientStreamRPC',
+                request_serializer=test__pb2.TestRequest.SerializeToString,
+                response_deserializer=test__pb2.TestResponse.FromString,
+                _registered_method=True)
+        self.TestBidirectionalStreamRPC = channel.stream_stream(
+                '/test.TestService/TestBidirectionalStreamRPC',
+                request_serializer=test__pb2.TestRequest.SerializeToString,
+                response_deserializer=test__pb2.TestResponse.FromString,
+                _registered_method=True)
 
 
 class TestServiceServicer(object):
@@ -50,11 +65,44 @@ class TestServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def TestServerStreamRPC(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def TestClientStreamRPC(self, request_iterator, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def TestBidirectionalStreamRPC(self, request_iterator, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_TestServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
             'TestRPC': grpc.unary_unary_rpc_method_handler(
                     servicer.TestRPC,
+                    request_deserializer=test__pb2.TestRequest.FromString,
+                    response_serializer=test__pb2.TestResponse.SerializeToString,
+            ),
+            'TestServerStreamRPC': grpc.unary_stream_rpc_method_handler(
+                    servicer.TestServerStreamRPC,
+                    request_deserializer=test__pb2.TestRequest.FromString,
+                    response_serializer=test__pb2.TestResponse.SerializeToString,
+            ),
+            'TestClientStreamRPC': grpc.stream_unary_rpc_method_handler(
+                    servicer.TestClientStreamRPC,
+                    request_deserializer=test__pb2.TestRequest.FromString,
+                    response_serializer=test__pb2.TestResponse.SerializeToString,
+            ),
+            'TestBidirectionalStreamRPC': grpc.stream_stream_rpc_method_handler(
+                    servicer.TestBidirectionalStreamRPC,
                     request_deserializer=test__pb2.TestRequest.FromString,
                     response_serializer=test__pb2.TestResponse.SerializeToString,
             ),
@@ -84,6 +132,87 @@ class TestService(object):
             request,
             target,
             '/test.TestService/TestRPC',
+            test__pb2.TestRequest.SerializeToString,
+            test__pb2.TestResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def TestServerStreamRPC(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_stream(
+            request,
+            target,
+            '/test.TestService/TestServerStreamRPC',
+            test__pb2.TestRequest.SerializeToString,
+            test__pb2.TestResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def TestClientStreamRPC(request_iterator,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.stream_unary(
+            request_iterator,
+            target,
+            '/test.TestService/TestClientStreamRPC',
+            test__pb2.TestRequest.SerializeToString,
+            test__pb2.TestResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def TestBidirectionalStreamRPC(request_iterator,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.stream_stream(
+            request_iterator,
+            target,
+            '/test.TestService/TestBidirectionalStreamRPC',
             test__pb2.TestRequest.SerializeToString,
             test__pb2.TestResponse.FromString,
             options,

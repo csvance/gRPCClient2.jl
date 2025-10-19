@@ -106,7 +106,7 @@ export gRPCServiceCallException
 
 @setup_workload begin
     @compile_workload begin
-
+        #=
         include("../test/gen/test/test_pb.jl")
 
         # Initialize the gRPC package - grpc_shutdown() does the opposite for use with Revise.
@@ -121,7 +121,7 @@ export gRPCServiceCallException
         # Async API
         request = grpc_async_request(client, TestRequest(1, Vector{UInt64}()))
         response = grpc_async_await(client, request)
-
+        =#
     end
 end
 

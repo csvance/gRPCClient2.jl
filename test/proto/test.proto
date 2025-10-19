@@ -3,6 +3,9 @@ package test;
 
 service TestService {
   rpc TestRPC(TestRequest) returns (TestResponse) {}
+  rpc TestServerStreamRPC(TestRequest) returns (stream TestResponse) {}
+  rpc TestClientStreamRPC(stream TestRequest) returns (TestResponse) {}
+  rpc TestBidirectionalStreamRPC(stream TestRequest) returns (stream TestResponse) {}
 }
 
 message TestRequest {

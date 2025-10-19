@@ -8,6 +8,7 @@ mkdir -p gen
 
 julia <<EOF 
 
+using gRPCClient2
 using ProtoBuf
 protojl("proto/test.proto", ".", "gen")
 

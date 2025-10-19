@@ -1,4 +1,4 @@
-#=
+
 function codegen(io, t::ServiceType, ctx::Context)
     namespace = join(ctx.proto_file.preamble.namespace, ".")
     service_name = t.name 
@@ -33,7 +33,7 @@ function codegen(io, t::ServiceType, ctx::Context)
         println(io, "\tkeepalive=keepalive,")
         println(io, "\tmax_send_message_length=max_send_message_length,")
         println(io, "\tmax_recieve_message_length=max_recieve_message_length,")
-        println(io, ")")
+        println(io, ")\n")
     end
 end
-=#
+
