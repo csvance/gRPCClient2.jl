@@ -66,13 +66,13 @@ function read_callback(
         req.request_ptr += n_min
 
         if isstreaming_request(req) && n_min == 0
-            
             # Keep sending until the channel is closed and empty
             if !isopen(req.request_c) && isempty(req.request_c) 
+
                 notify(req.curl_done_reading)
                 return 0
             end
-
+            
             seekstart(req.request)
             truncate(req.request, 0)
             req.request_ptr = 0

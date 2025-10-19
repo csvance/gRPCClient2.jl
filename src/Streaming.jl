@@ -38,7 +38,8 @@ function grpc_async_stream_request(req::gRPCRequest, channel::Channel{TRequest})
         close(req)
             
         if isa(ex, InvalidStateException)
-
+            # Trigger a "return 0" in read_callback so curl ends the current request
+            curl_easy_pause(req.easy, CURLPAUSE_CONT)
         elseif isa(ex, gRPCServiceCallException)
             if isnothing(req.ex) req.ex = ex end
         else 
