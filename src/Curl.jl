@@ -50,26 +50,37 @@ function read_callback(
     req_p::Ptr{Cvoid},
 )::Csize_t
     try
+
         req = unsafe_pointer_to_objref(req_p)::gRPCRequest
+
+        # If streaming its no longer safe to write to request buffer
+        reset(req.curl_done_reading)
 
         buf_p = pointer(req.request.data) + req.request_ptr
         n_left = req.request.size - req.request_ptr
-        n = min(size * count, n_left)
 
-        ccall(:memcpy, Ptr{Cvoid}, (Ptr{Cvoid}, Ptr{Cvoid}, Csize_t), data, buf_p, n)
+        n = size*count 
+        n_min = min(size * count, n_left)
 
-        req.request_ptr += n
+        ccall(:memcpy, Ptr{Cvoid}, (Ptr{Cvoid}, Ptr{Cvoid}, Csize_t), data, buf_p, n_min)
 
-        if isstreaming_request(req) && req.request_ptr == req.request.size
+        req.request_ptr += n_min
+
+        if isstreaming_request(req) && n_min == 0
+            # Keep sending until the channel is closed and empty
+            !isopen(req.request_c) && isempty(req.request_c) && return 0
+
             seekstart(req.request)
             truncate(req.request, 0)
             req.request_ptr = 0
 
             # Safe to write more data to the request buffer again 
             notify(req.curl_done_reading)
-        end
 
-        return n
+            return CURL_READFUNC_PAUSE
+        end 
+
+        return n_min
     catch err
         @async @error("read_callback: unexpected error", err = err, maxlog = 1_000)
         return CURL_READFUNC_ABORT
@@ -263,6 +274,12 @@ isstreaming_response(req::gRPCRequest) = !isnothing(req.response_c)
 wait(req::gRPCRequest) = wait(req.ready)
 reset(req::gRPCRequest) = reset(req.ready)
 
+function close(req::gRPCRequest)
+    !isnothing(req.request_c) && isopen(req.request_c) && close(req.request_c)
+    !isnothing(req.response_c) && isopen(req.response_c) && close(req.response_c)
+    # TODO: close the connection
+end
+
 
 function handle_write(req::gRPCRequest, buf::Vector{UInt8})
     if !req.response_read_header
@@ -280,7 +297,13 @@ function handle_write(req::gRPCRequest, buf::Vector{UInt8})
             req.response_compressed = read(req.response, UInt8) > 0
             req.response_length = ntoh(read(req.response, UInt32))
 
-            if req.response_length > req.max_recieve_message_length
+            if req.response_compressed
+                req.ex = gRPCServiceCallException(
+                    GRPC_UNIMPLEMENTED,
+                    "Response was compressed but compression is not currently supported."
+                )
+                return n
+            elseif req.response_length > req.max_recieve_message_length
                 req.ex = gRPCServiceCallException(
                     GRPC_RESOURCE_EXHAUSTED,
                     "length-prefix longer than max_recieve_message_length: $(req.response_length) > $(req.max_recieve_message_length)"

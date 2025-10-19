@@ -81,8 +81,11 @@ function Base.showerror(io::IO, e::gRPCServiceCallException)
     )
 end
 
+include("Utils.jl")
 include("Curl.jl")
 include("gRPC.jl")
+include("Unary.jl")
+include("Streaming.jl")
 include("ProtoBuf.jl")
 
 export grpc_init
