@@ -4,7 +4,7 @@ gRPCClient2.jl aims to be a production grade gRPC client emphasizing performance
 
 ## Features
 
-- Unary RPC (non streaming)
+- Unary+Streaming RPC
 - HTTP/2 connection multiplexing
 - Synchronous and asynchronous interfaces
 - Thread safe
@@ -14,7 +14,6 @@ The client is missing a few features which will be added over time:
 
 - OAuth2
 - Compression
-- Streaming RPC
 
 ## Getting Started
 
@@ -48,7 +47,7 @@ using gRPCClient2
 protojl("test/proto/test.proto", ".", "test/gen")
 ```
 
-### Making Requests with gRPCClient2.jl
+### Making Unary RPC Requests with gRPCClient2.jl
 
 ```julia
 using gRPCClient2
@@ -92,7 +91,7 @@ grpc_shutdown()
 grpc_global_handle()
 ```
 
-## Request Functions
+## RPC
 
 ### Unary
 
