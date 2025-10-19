@@ -1,5 +1,5 @@
 isfull(ch::Channel) = begin
-    if ch.sz_max===0
+    if ch.sz_max === 0
         isready(ch)
     else
         length(ch.data) ≥ ch.sz_max

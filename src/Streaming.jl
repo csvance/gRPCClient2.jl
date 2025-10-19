@@ -1,20 +1,29 @@
-function grpc_async_stream_request(req::gRPCRequest, channel::Channel{TRequest}) where {TRequest<:Any}
-    try 
+function grpc_async_stream_request(
+    req::gRPCRequest,
+    channel::Channel{TRequest},
+) where {TRequest<:Any}
+    try
         reqs_ready = 0
         encode_buf = IOBuffer()
 
         while isnothing(req.ex)
-            try 
+            try
                 request = take!(channel)
-                grpc_encode_request_iobuffer(request, encode_buf; max_send_message_length=req.max_send_message_length)
+                grpc_encode_request_iobuffer(
+                    request,
+                    encode_buf;
+                    max_send_message_length = req.max_send_message_length,
+                )
                 reqs_ready += 1
-            catch ex 
+            catch ex
                 # Channel was closed, so flush all the requests in encode_buf
                 isa(ex, InvalidStateException) && wait(req.curl_done_reading)
                 rethrow(ex)
-            finally 
+            finally
                 # Try to be smart about when we pass control to curl (we won't be able to encode protobufs during this time)
-                if reqs_ready > 0 && req.curl_done_reading.set && (isempty(channel) || reqs_ready >= 10 || encode_buf.size >= 8096)
+                if reqs_ready > 0 &&
+                   req.curl_done_reading.set &&
+                   (isempty(channel) || reqs_ready >= 10 || encode_buf.size >= 8096)
                     seekstart(encode_buf)
 
                     # Wait for libCURL to not be reading anymore 
@@ -36,23 +45,30 @@ function grpc_async_stream_request(req::gRPCRequest, channel::Channel{TRequest})
     catch ex
         close(channel)
         close(req)
-            
+
         if isa(ex, InvalidStateException)
             # Trigger a "return 0" in read_callback so curl ends the current request
             curl_easy_pause(req.easy, CURLPAUSE_CONT)
         elseif isa(ex, gRPCServiceCallException)
-            if isnothing(req.ex) req.ex = ex end
-        else 
-            if isnothing(req.ex) req.ex = ex end
-            @error "grpc_async_stream_request: unexpected exception" exception=ex
+            if isnothing(req.ex)
+                req.ex = ex
+            end
+        else
+            if isnothing(req.ex)
+                req.ex = ex
+            end
+            @error "grpc_async_stream_request: unexpected exception" exception = ex
         end
     end
 
     nothing
 end
 
-function grpc_async_stream_response(req::gRPCRequest, channel::Channel{TResponse}) where {TResponse<:Any}
-    try 
+function grpc_async_stream_response(
+    req::gRPCRequest,
+    channel::Channel{TResponse},
+) where {TResponse<:Any}
+    try
         while isnothing(req.ex)
             response_buf = take!(req.response_c)
             response = decode(ProtoDecoder(response_buf), TResponse)
@@ -61,14 +77,18 @@ function grpc_async_stream_response(req::gRPCRequest, channel::Channel{TResponse
     catch ex
         close(channel)
         close(req)
-            
+
         if isa(ex, InvalidStateException)
 
         elseif isa(ex, gRPCServiceCallException)
-            if isnothing(req.ex) req.ex = ex end
-        else 
-            if isnothing(req.ex) req.ex = ex end
-            @error "grpc_async_stream_response: unexpected exception" exception=ex
+            if isnothing(req.ex)
+                req.ex = ex
+            end
+        else
+            if isnothing(req.ex)
+                req.ex = ex
+            end
+            @error "grpc_async_stream_response: unexpected exception" exception = ex
         end
 
     end
@@ -80,7 +100,7 @@ end
 function grpc_async_request(
     client::gRPCClient{TRequest,true,TResponse,false},
     request::Channel{TRequest},
-) where {TRequest<:Any,TResponse<:Any} 
+) where {TRequest<:Any,TResponse<:Any}
 
     req = gRPCRequest(
         client.grpc,
@@ -108,7 +128,10 @@ function grpc_async_request(
     response::Channel{TResponse},
 ) where {TRequest<:Any,TResponse<:Any}
 
-    request_buf = grpc_encode_request_iobuffer(request; max_send_message_length=client.max_send_message_length)
+    request_buf = grpc_encode_request_iobuffer(
+        request;
+        max_send_message_length = client.max_send_message_length,
+    )
     seekstart(request_buf)
 
     req = gRPCRequest(
@@ -164,4 +187,3 @@ grpc_async_await(
     client::gRPCClient{TRequest,true,TResponse,false},
     request::gRPCRequest,
 ) where {TRequest<:Any,TResponse<:Any} = grpc_async_await(request, TResponse)
-

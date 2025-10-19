@@ -9,10 +9,13 @@ This is ideal when you need to send many requests in parallel and waiting on eac
 """
 function grpc_async_request(
     client::gRPCClient{TRequest,false,TResponse,false},
-    request::TRequest
-) where {TRequest<:Any,TResponse<:Any} 
+    request::TRequest,
+) where {TRequest<:Any,TResponse<:Any}
 
-    request_buf = grpc_encode_request_iobuffer(request; max_send_message_length=client.max_send_message_length)
+    request_buf = grpc_encode_request_iobuffer(
+        request;
+        max_send_message_length = client.max_send_message_length,
+    )
     seekstart(request_buf)
 
     req = gRPCRequest(
@@ -36,8 +39,8 @@ end
 
 mutable struct gRPCAsyncChannelResponse{TResponse}
     index::Int64
-    response::Union{Nothing, TResponse}
-    ex::Union{Nothing, Exception}
+    response::Union{Nothing,TResponse}
+    ex::Union{Nothing,Exception}
 end
 
 """
@@ -81,7 +84,10 @@ function grpc_async_request(
     index::Int64,
 ) where {TRequest<:Any,TResponse<:Any}
 
-    request_buf = grpc_encode_request_iobuffer(request; max_send_message_length=client.max_send_message_length)
+    request_buf = grpc_encode_request_iobuffer(
+        request;
+        max_send_message_length = client.max_send_message_length,
+    )
     seekstart(request_buf)
 
     req = gRPCRequest(
@@ -132,7 +138,5 @@ Under the hood this just calls `grpc_async_request` and `grpc_async_await`
 grpc_sync_request(
     client::gRPCClient{TRequest,false,TResponse,false},
     request::TRequest,
-) where {TRequest<:Any,TResponse<:Any} = grpc_async_await(
-        grpc_async_request(client, request),
-        TResponse,
-    )
+) where {TRequest<:Any,TResponse<:Any} =
+    grpc_async_await(grpc_async_request(client, request), TResponse)

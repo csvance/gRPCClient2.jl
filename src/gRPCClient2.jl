@@ -117,7 +117,7 @@ export gRPCServiceCallException
 
         # Unary 
         client_unary = TestService_TestRPC_Client(TEST_HOST, TEST_PORT)
-        
+
         # Sync API
         test_response = grpc_sync_request(client_unary, TestRequest(1, Vector{UInt64}()))
 
@@ -132,7 +132,8 @@ export gRPCServiceCallException
         request_c = Channel{TestRequest}(16)
         put!(request_c, TestRequest(1, zeros(UInt64, 1)))
         close(request_c)
-        test_response = grpc_async_await(client_request, grpc_async_request(client_request, request_c))
+        test_response =
+            grpc_async_await(client_request, grpc_async_request(client_request, request_c))
 
         # Response 
         client_response = TestService_TestServerStreamRPC_Client(TEST_HOST, TEST_PORT)
@@ -140,9 +141,10 @@ export gRPCServiceCallException
         grpc_async_request(client_response, TestRequest(1, zeros(UInt64, 1)), response_c)
         test_response = take!(response_c)
         close(response_c)
-        
+
         # Bidirectional 
-        client_bidirectional = TestService_TestBidirectionalStreamRPC_Client(TEST_HOST, TEST_PORT)
+        client_bidirectional =
+            TestService_TestBidirectionalStreamRPC_Client(TEST_HOST, TEST_PORT)
         request_c = Channel{TestRequest}(16)
         response_c = Channel{TestResponse}(16)
         put!(request_c, TestRequest(1, zeros(UInt64, 1)))

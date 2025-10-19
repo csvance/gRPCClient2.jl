@@ -42,7 +42,7 @@ struct gRPCClient{TRequest,SRequest,TResponse,SResponse}
         keepalive = 60,
         max_send_message_length = 4 * 1024 * 1024,
         max_recieve_message_length = 4 * 1024 * 1024,
-    ) where {TRequest<:Any,SRequest,TResponse<:Any,SResponse}     
+    ) where {TRequest<:Any,SRequest,TResponse<:Any,SResponse}
         new(
             grpc,
             host,
@@ -68,7 +68,11 @@ function url(client::gRPCClient)
 end
 
 
-function grpc_encode_request_iobuffer(request, req_buf::IOBuffer; max_send_message_length=4*1024*1024)
+function grpc_encode_request_iobuffer(
+    request,
+    req_buf::IOBuffer;
+    max_send_message_length = 4 * 1024 * 1024,
+)
     start_pos = position(req_buf)
 
     # Write compressed flag and length prefix
@@ -91,7 +95,7 @@ function grpc_encode_request_iobuffer(request, req_buf::IOBuffer; max_send_messa
     end
 
     # Seek back to length prefix and update it with size of encoded protobuf
-    seek(req_buf, start_pos+1)
+    seek(req_buf, start_pos + 1)
     write(req_buf, hton(sz))
 
     # Seek back to the end 
@@ -101,14 +105,12 @@ function grpc_encode_request_iobuffer(request, req_buf::IOBuffer; max_send_messa
 end
 
 
-grpc_encode_request_iobuffer(
-    request; 
-    max_send_message_length=4*1024*1024
-) = grpc_encode_request_iobuffer(
-    request, 
-    IOBuffer(); 
-    max_send_message_length=max_send_message_length
-)
+grpc_encode_request_iobuffer(request; max_send_message_length = 4 * 1024 * 1024) =
+    grpc_encode_request_iobuffer(
+        request,
+        IOBuffer();
+        max_send_message_length = max_send_message_length,
+    )
 
 
 const regex_grpc_status = r"grpc-status: ([0-9]+)"
@@ -143,8 +145,3 @@ function grpc_async_await(req::gRPCRequest, TResponse)
 
     return decode(ProtoDecoder(req.response), TResponse)
 end
-
-
-
-
-
