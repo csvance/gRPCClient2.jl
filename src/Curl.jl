@@ -7,6 +7,7 @@ let m = match(r"^libcurl/(\d+\.\d+\.\d+)\b", CURL_VERSION_STR)
     const global USER_AGENT = "curl/$curl julia/$julia"
 end
 
+
 function write_callback(
     data::Ptr{Cchar},
     size::Csize_t,
@@ -15,55 +16,27 @@ function write_callback(
 )::Csize_t
     try
         req = unsafe_pointer_to_objref(req_p)::gRPCRequest
+
         n = size * count
-        size_after_write = req.response.size + n
-
-        if size_after_write > req.max_recieve_message_length + GRPC_HEADER_SIZE
-            # This will be thrown by the thread waiting on the request to finish
-            req.ex = gRPCServiceCallException(
-                GRPC_RESOURCE_EXHAUSTED,
-                "effective response message size larger than max_recieve_message_length: $(size_after_write) > $(req.max_recieve_message_length + GRPC_HEADER_SIZE)",
-            )
-            # Returning anything other than n causes curl to abort this connection
-            return typemax(Csize_t)
-        end
-
         buf = unsafe_wrap(Array, convert(Ptr{UInt8}, data), (n,))
-        write(req.response, buf)
 
-        if !req.response_read_header && req.response.size >= GRPC_HEADER_SIZE
-            seek(req.response, 0)
+        # Handles all of the response stream data 
+        handled_n_bytes = handle_write(req, buf)
 
-            req.response_compressed = read(req.response, UInt8) > 0
-            req.response_length = ntoh(read(req.response, UInt32))
-            req.response_read_header = true
+        # If there was an exception handle it 
+        !isnothing(req.ex) && return typemax(Csize_t)
 
-            if req.response_length > req.max_recieve_message_length
-                # This will be thrown by the thread waiting on the request to finish
-                req.ex = gRPCServiceCallException(
-                    GRPC_RESOURCE_EXHAUSTED,
-                    "declared message length-prefix larger than max_recieve_message_length: $(req.response_length) > $(req.max_recieve_message_length)",
-                )
-                # Returning anything other than n causes curl to abort this connection
-                return typemax(Csize_t)
-            end
-
-            # Seek back to the end so we can continue normally
-            seekend(req.response)
-        end
-
-        if req.response_read_header &&
-           size_after_write > req.response_length + GRPC_HEADER_SIZE
-            # This will be thrown by the thread waiting on the request to finish
+        # Check that we handled the correct number of bytes
+        # If there was no exception in handle_write this should always match 
+        if handled_n_bytes != n
             req.ex = gRPCServiceCallException(
-                GRPC_RESOURCE_EXHAUSTED,
-                "effective response message size larger than declared prefix-length: $(size_after_write) > $(req.response_length + GRPC_HEADER_SIZE)",
+                GRPC_INTERNAL,
+                "Recieved $(n) bytes from curl but only handled $(handled_n_bytes)",
             )
-            # Returning anything other than n causes curl to abort this connection
             return typemax(Csize_t)
         end
 
-        return n
+        return handled_n_bytes
     catch err
         @async @error("write_callback: unexpected error", err = err, maxlog = 1_000)
         return typemax(Csize_t)
@@ -79,15 +52,37 @@ function read_callback(
     try
         req = unsafe_pointer_to_objref(req_p)::gRPCRequest
 
-        buf_p = pointer(req.request.data) + (req.request_ptr - 1)
-        n_left = req.request.size - (req.request_ptr - 1)
-        n = min(size * count, n_left)
+        # If streaming its no longer safe to write to request buffer
+        reset(req.curl_done_reading)
 
-        ccall(:memcpy, Ptr{Cvoid}, (Ptr{Cvoid}, Ptr{Cvoid}, Csize_t), data, buf_p, n)
+        buf_p = pointer(req.request.data) + req.request_ptr
+        n_left = req.request.size - req.request_ptr
 
-        req.request_ptr += n
+        n = size * count
+        n_min = min(n, n_left)
 
-        return n
+        ccall(:memcpy, Ptr{Cvoid}, (Ptr{Cvoid}, Ptr{Cvoid}, Csize_t), data, buf_p, n_min)
+
+        req.request_ptr += n_min
+
+        if isstreaming_request(req) && n_min == 0
+            # Keep sending until the channel is closed and empty
+            if !isopen(req.request_c) && isempty(req.request_c)
+                notify(req.curl_done_reading)
+                return 0
+            end
+
+            seekstart(req.request)
+            truncate(req.request, 0)
+            req.request_ptr = 0
+
+            # Safe to write more data to the request buffer again 
+            notify(req.curl_done_reading)
+
+            return CURL_READFUNC_PAUSE
+        end
+
+        return n_min
     catch err
         @async @error("read_callback: unexpected error", err = err, maxlog = 1_000)
         return CURL_READFUNC_ABORT
@@ -121,6 +116,9 @@ mutable struct gRPCRequest
     url::String
     request::IOBuffer
     response::IOBuffer
+    # These are only used when the request or response is streaming
+    request_c::Union{Nothing,Channel{IOBuffer}}
+    response_c::Union{Nothing,Channel{IOBuffer}}
     code::CURLcode
     ready::Event
     errbuf::Vector{UInt8}
@@ -132,11 +130,15 @@ mutable struct gRPCRequest
     response_read_header::Bool
     response_compressed::Bool
     response_length::UInt32
+    curl_done_reading::Event
 
     function gRPCRequest(
         grpc,
         url,
-        request;
+        request::IOBuffer,
+        response::IOBuffer,
+        request_c::Union{Nothing,Channel{IOBuffer}},
+        response_c::Union{Nothing,Channel{IOBuffer}};
         deadline = 10,
         keepalive = 60,
         max_send_message_length = 4 * 1024 * 1024,
@@ -201,23 +203,27 @@ mutable struct gRPCRequest
         curl_easy_setopt(easy_handle, CURLOPT_TCP_KEEPALIVE, Clong(1))
         curl_easy_setopt(easy_handle, CURLOPT_TCP_KEEPINTVL, keepalive)
         curl_easy_setopt(easy_handle, CURLOPT_TCP_KEEPIDLE, keepalive)
+
         req = new(
             easy_handle,
             grpc.multi,
             http_url,
             request,
-            IOBuffer(),
+            response,
+            request_c,
+            response_c,
             UInt32(0),
             Event(),
             zeros(UInt8, CURL_ERROR_SIZE),
             Vector{String}(),
-            1,
+            0,
             max_send_message_length,
             max_recieve_message_length,
             nothing,
             false,
             false,
             0,
+            Event(),
         )
 
         req_p = pointer_from_objref(req)
@@ -245,6 +251,10 @@ mutable struct gRPCRequest
         curl_easy_setopt(easy_handle, CURLOPT_HEADERDATA, req_p)
         curl_easy_setopt(easy_handle, CURLOPT_UPLOAD, true)
 
+        # Start paused and able to write the request
+        curl_easy_pause(easy_handle, CURLPAUSE_RECV)
+        notify(req.curl_done_reading)
+
         lock(grpc.lock) do
             if !grpc.running
                 curl_easy_cleanup(easy_handle)
@@ -264,9 +274,117 @@ mutable struct gRPCRequest
     end
 end
 
+isstreaming_request(req::gRPCRequest) = !isnothing(req.request_c)
+isstreaming_response(req::gRPCRequest) = !isnothing(req.response_c)
 
 wait(req::gRPCRequest) = wait(req.ready)
 reset(req::gRPCRequest) = reset(req.ready)
+
+function close(req::gRPCRequest)
+    !isnothing(req.request_c) && isopen(req.request_c) && close(req.request_c)
+    !isnothing(req.response_c) && isopen(req.response_c) && close(req.response_c)
+    # TODO: close the connection
+end
+
+
+function handle_write(req::gRPCRequest, buf::Vector{UInt8})
+    if !req.response_read_header
+        header_bytes_left = GRPC_HEADER_SIZE - req.response.size
+
+        if length(buf) < header_bytes_left
+            # Not enough data yet to read the entire header
+            return write(req.response, buf)
+        else
+
+            buf_header = buf[1:header_bytes_left]
+            n = write(req.response, buf_header)
+
+            # Read the header
+            seekstart(req.response)
+            req.response_compressed = read(req.response, UInt8) > 0
+            req.response_length = ntoh(read(req.response, UInt32))
+
+            if req.response_compressed
+                req.ex = gRPCServiceCallException(
+                    GRPC_UNIMPLEMENTED,
+                    "Response was compressed but compression is not currently supported.",
+                )
+                return n
+            elseif req.response_length > req.max_recieve_message_length
+                req.ex = gRPCServiceCallException(
+                    GRPC_RESOURCE_EXHAUSTED,
+                    "length-prefix longer than max_recieve_message_length: $(req.response_length) > $(req.max_recieve_message_length)",
+                )
+                return n
+            end
+
+            req.response_read_header = true
+            seekstart(req.response)
+            truncate(req.response, 0)
+
+            if (leftover_bytes = length(buf) - header_bytes_left) > 0
+                # Handle the remaining data
+                buf_leftover = unsafe_wrap(Array, pointer(buf) + n, (leftover_bytes,))
+                n += handle_write(req, buf_leftover)
+            end
+
+            return n
+        end
+    end
+
+    # Already read the header
+    message_bytes_left = req.response_length - req.response.size
+
+    # Not enough bytes to complete the message
+    length(buf) < message_bytes_left && return write(req.response, buf)
+
+    if isstreaming_response(req)
+        # Write just enough to complete the message
+        buf_complete = unsafe_wrap(Array, pointer(buf), (message_bytes_left,))
+        n = write(req.response, buf_complete)
+
+        let response = req.response
+            # Response is done, put it in the channel so it can be returned back to the user
+            seekstart(response)
+
+            # Is this valid (potentially blocking in C callback)
+            put!(req.response_c, response)
+        end
+
+        # There might be another response after this so reset these
+        req.response = IOBuffer()
+        req.response_read_header = false
+        req.response_compressed = false
+        req.response_length = 0
+
+        # Handle the remaining data
+        leftover_bytes = message_bytes_left - n
+
+        if leftover_bytes > 0
+            buf_leftover = unsafe_wrap(Array, pointer(buf) + n, (length(leftover_bytes),))
+            n += handle_write(req, buf_leftover)
+        end
+
+        return n
+    else
+        # We only expect a single response for non-streaming RPC
+        if length(buf) > message_bytes_left
+            req.ex = gRPCServiceCallException(
+                GRPC_RESOURCE_EXHAUSTED,
+                "Response was longer than declared in length-prefix.",
+            )
+            return 0
+        end
+
+        n = write(req.response, buf)
+        seekstart(req.response)
+
+        notify(req.ready)
+
+        return n
+    end
+
+end
 
 
 function timer_callback(multi_h::Ptr{Cvoid}, timeout_ms::Clong, grpc_p::Ptr{Cvoid})::Cint
@@ -452,7 +570,7 @@ mutable struct gRPCCURL
     requests::Vector{gRPCRequest}
     sem::Semaphore
 
-    function gRPCCURL(max_streams=GRPC_MAX_STREAMS)
+    function gRPCCURL(max_streams = GRPC_MAX_STREAMS)
         grpc = new(
             Ptr{Cvoid}(0),
             ReentrantLock(),
@@ -460,7 +578,7 @@ mutable struct gRPCCURL
             Dict{curl_socket_t,CURLWatcher}(),
             true,
             Vector{gRPCRequest}(),
-            Semaphore(max_streams)
+            Semaphore(max_streams),
         )
 
         grpc_multi_init(grpc)

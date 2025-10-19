@@ -81,8 +81,11 @@ function Base.showerror(io::IO, e::gRPCServiceCallException)
     )
 end
 
+include("Utils.jl")
 include("Curl.jl")
 include("gRPC.jl")
+include("Unary.jl")
+include("Streaming.jl")
 include("ProtoBuf.jl")
 
 export grpc_init
@@ -102,23 +105,55 @@ export gRPCException
 export gRPCServiceCallException
 
 @setup_workload begin
-    @compile_workload begin
+    # We don't have a Julia gRPC server so call my Linode's public gRPC endpoint
+    TEST_HOST = "172.238.177.88"
+    TEST_PORT = 8001
 
+    @compile_workload begin
         include("../test/gen/test/test_pb.jl")
 
         # Initialize the gRPC package - grpc_shutdown() does the opposite for use with Revise.
         grpc_init()
 
-        # We don't have a Julia gRPC server so call my Linode's public gRPC endpoint
-        client = TestService_TestRPC_Client("172.238.177.88", 8001)
+        # Unary 
+        client_unary = TestService_TestRPC_Client(TEST_HOST, TEST_PORT)
 
         # Sync API
-        test_response = grpc_sync_request(client, TestRequest(1, Vector{UInt64}()))
+        test_response = grpc_sync_request(client_unary, TestRequest(1, Vector{UInt64}()))
 
         # Async API
-        request = grpc_async_request(client, TestRequest(1, Vector{UInt64}()))
-        response = grpc_async_await(client, request)
+        request = grpc_async_request(client_unary, TestRequest(1, Vector{UInt64}()))
+        test_response = grpc_async_await(client_unary, request)
 
+        # Streaming 
+
+        # Request 
+        client_request = TestService_TestClientStreamRPC_Client(TEST_HOST, TEST_PORT)
+        request_c = Channel{TestRequest}(16)
+        put!(request_c, TestRequest(1, zeros(UInt64, 1)))
+        close(request_c)
+        test_response = grpc_async_await(client_request, grpc_async_request(client_request, request_c))
+
+        # Response 
+        client_response = TestService_TestServerStreamRPC_Client(TEST_HOST, TEST_PORT)
+        response_c = Channel{TestResponse}(16)
+        req = grpc_async_request(
+            client_response,
+            TestRequest(1, zeros(UInt64, 1)),
+            response_c,
+        )
+        test_response = take!(response_c)
+        grpc_async_await(req)
+
+        # Bidirectional 
+        client_bidirectional = TestService_TestBidirectionalStreamRPC_Client(TEST_HOST, TEST_PORT)
+        request_c = Channel{TestRequest}(16)
+        response_c = Channel{TestResponse}(16)
+        put!(request_c, TestRequest(1, zeros(UInt64, 1)))
+        req = grpc_async_request(client_bidirectional, request_c, response_c)
+        test_response = take!(response_c)
+        close(request_c)
+        grpc_async_await(req)
     end
 end
 
