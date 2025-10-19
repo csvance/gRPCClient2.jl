@@ -68,7 +68,6 @@ function read_callback(
         if isstreaming_request(req) && n_min == 0
             # Keep sending until the channel is closed and empty
             if !isopen(req.request_c) && isempty(req.request_c)
-
                 notify(req.curl_done_reading)
                 return 0
             end
@@ -346,9 +345,10 @@ function handle_write(req::gRPCRequest, buf::Vector{UInt8})
 
         let response = req.response
             # Response is done, put it in the channel so it can be returned back to the user
-            # We can't use put! inside of a C callback so create a task to handle it
             seekstart(response)
-            @async put!(req.response_c, response)
+
+            # Is this valid (potentially blocking in C callback)
+            put!(req.response_c, response)
         end
 
         # There might be another response after this so reset these

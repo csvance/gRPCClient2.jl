@@ -138,9 +138,14 @@ export gRPCServiceCallException
         # Response 
         client_response = TestService_TestServerStreamRPC_Client(TEST_HOST, TEST_PORT)
         response_c = Channel{TestResponse}(16)
-        grpc_async_request(client_response, TestRequest(1, zeros(UInt64, 1)), response_c)
+        req = grpc_async_request(
+            client_response,
+            TestRequest(1, zeros(UInt64, 1)),
+            response_c,
+        )
         test_response = take!(response_c)
         close(response_c)
+        grpc_async_await(req)
 
         # Bidirectional 
         client_bidirectional =
@@ -148,9 +153,10 @@ export gRPCServiceCallException
         request_c = Channel{TestRequest}(16)
         response_c = Channel{TestResponse}(16)
         put!(request_c, TestRequest(1, zeros(UInt64, 1)))
-        grpc_async_request(client_bidirectional, request_c, response_c)
+        req = grpc_async_request(client_bidirectional, request_c, response_c)
         test_response = take!(response_c)
         close(request_c)
+        grpc_async_await(req)
     end
 end
 

@@ -72,6 +72,7 @@ function grpc_async_stream_response(
         while isnothing(req.ex)
             response_buf = take!(req.response_c)
             response = decode(ProtoDecoder(response_buf), TResponse)
+
             put!(channel, response)
         end
     catch ex
@@ -118,7 +119,6 @@ function grpc_async_request(
     request_task = Threads.@spawn grpc_async_stream_request(req, request)
     errormonitor(request_task)
 
-    # response is not streaming so we use grpc_async_await on the returned request
     req
 end
 
@@ -150,7 +150,7 @@ function grpc_async_request(
     response_task = Threads.@spawn grpc_async_stream_response(req, response)
     errormonitor(response_task)
 
-    nothing
+    req
 end
 
 function grpc_async_request(
@@ -178,7 +178,7 @@ function grpc_async_request(
     response_task = Threads.@spawn grpc_async_stream_response(req, response)
     errormonitor(response_task)
 
-    nothing
+    req
 end
 
 

@@ -117,7 +117,7 @@ const regex_grpc_status = r"grpc-status: ([0-9]+)"
 const regex_grpc_message = Regex("grpc-message: (.*)", "s")
 
 
-function grpc_async_await(req::gRPCRequest, TResponse)
+function grpc_async_await(req::gRPCRequest)
     wait(req)
 
     # Throw an exception for this request if we have one
@@ -142,6 +142,10 @@ function grpc_async_await(req::gRPCRequest, TResponse)
     end
 
     grpc_status != GRPC_OK && throw(gRPCServiceCallException(grpc_status, grpc_message))
+end
 
+
+function grpc_async_await(req::gRPCRequest, TResponse)
+    grpc_async_await(req)
     return decode(ProtoDecoder(req.response), TResponse)
 end

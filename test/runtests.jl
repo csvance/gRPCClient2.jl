@@ -118,7 +118,7 @@ include("gen/test/test_pb.jl")
             @test r.index == length(r.response.data)
         end
     end
-
+    
     @testset "Response Streaming" begin 
         N = 16
 
@@ -126,7 +126,7 @@ include("gen/test/test_pb.jl")
 
         response_c = Channel{TestResponse}(N)
 
-        grpc_async_request(client, TestRequest(16, zeros(UInt64, 1)), response_c)
+        req = grpc_async_request(client, TestRequest(16, zeros(UInt64, 1)), response_c)
 
         # We should get back 16 messages that end with their length
         for i in 1:N 
@@ -134,8 +134,9 @@ include("gen/test/test_pb.jl")
             @test length(response.data) == i
             @test last(response.data) == i
         end
-    end
 
+        grpc_async_await(req)
+    end
 
     @testset "Request Streaming" begin 
         N = 16
@@ -166,7 +167,7 @@ include("gen/test/test_pb.jl")
         request_c = Channel{TestRequest}(N)
         response_c = Channel{TestResponse}(N)
 
-        grpc_async_request(client, request_c, response_c)
+        req = grpc_async_request(client, request_c, response_c)
 
         for i in 1:N
             put!(request_c, TestRequest(i, zeros(UInt64, i)))
@@ -178,6 +179,10 @@ include("gen/test/test_pb.jl")
             @test last(response.data) == i
         end
 
-        close(request_c)
+        close(request_c) 
+
+        grpc_async_await(req)
+
     end
+
 end
