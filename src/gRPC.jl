@@ -118,6 +118,7 @@ const regex_grpc_message = Regex("grpc-message: (.*)", "s")
 
 
 function grpc_async_await(req::gRPCRequest)
+    # Wait for request to be done
     wait(req)
 
     # Throw an exception for this request if we have one

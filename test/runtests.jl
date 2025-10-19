@@ -149,9 +149,7 @@ include("gen/test/test_pb.jl")
             put!(request_c, TestRequest(1, zeros(UInt64, 1)))
         end
 
-        # Finish sending requests
         close(request_c)
-
         response = grpc_async_await(client, request)
         
         @test length(response.data) == N
@@ -179,10 +177,8 @@ include("gen/test/test_pb.jl")
             @test last(response.data) == i
         end
 
-        close(request_c) 
-
+        close(request_c)
         grpc_async_await(req)
-
     end
 
 end

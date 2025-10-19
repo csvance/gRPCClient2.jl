@@ -97,7 +97,30 @@ function grpc_async_stream_response(
     nothing
 end
 
+"""
+    grpc_async_request(client::gRPCClient{TRequest,true,TResponse,false}, request::Channel{TRequest}) where {TRequest<:Any,TResponse<:Any}
 
+Start a requesting streaming gRPC request.
+
+```julia 
+using gRPCClient2
+
+grpc_init()
+include("test/gen/test/test_pb.jl")
+
+client = TestService_TestClientStreamRPC_Client("localhost", 8001)
+request_c = Channel{TestRequest}(16)
+put!(request_c, TestRequest(1, zeros(UInt64, 1)))
+
+req = grpc_async_request(client, request_c)
+
+# Must close the request channel when done sending requests
+close(request_c)
+
+# Get the response
+test_response = grpc_async_await(client, req)
+```
+"""
 function grpc_async_request(
     client::gRPCClient{TRequest,true,TResponse,false},
     request::Channel{TRequest},
@@ -122,6 +145,32 @@ function grpc_async_request(
     req
 end
 
+"""
+    grpc_async_request(client::gRPCClient{TRequest,false,TResponse,true},request::TRequest,response::Channel{TResponse}) where {TRequest<:Any,TResponse<:Any}
+
+Start a response streaming gRPC request.
+
+```julia
+using gRPCClient2
+
+grpc_init()
+include("test/gen/test/test_pb.jl")
+
+client = TestService_TestServerStreamRPC_Client("localhost", 8001)
+
+response_c = Channel{TestResponse}(16)
+
+req = grpc_async_request(
+    client,
+    TestRequest(1, zeros(UInt64, 1)),
+    response_c,
+)
+test_response = take!(response_c)
+
+# Raise any exceptions encountered during the request
+grpc_async_await(req) 
+```
+"""
 function grpc_async_request(
     client::gRPCClient{TRequest,false,TResponse,true},
     request::TRequest,
@@ -153,6 +202,32 @@ function grpc_async_request(
     req
 end
 
+"""
+    grpc_async_request(client::gRPCClient{TRequest,true,TResponse,true},request::Channel{TRequest},response::Channel{TResponse}) where {TRequest<:Any,TResponse<:Any}
+
+Start a bidirectional gRPC request.
+
+```julia
+using gRPCClient2
+
+grpc_init()
+include("test/gen/test/test_pb.jl")
+
+client = TestService_TestBidirectionalStreamRPC_Client("localhost", 8001)
+
+request_c = Channel{TestRequest}(16)
+response_c = Channel{TestResponse}(16)
+
+put!(request_c, TestRequest(1, zeros(UInt64, 1)))
+req = grpc_async_request(client, request_c, response_c)
+test_response = take!(response_c)
+
+# Must close the request channel when done sending requests
+close(request_c)
+# Raise any exceptions encountered during the request
+grpc_async_await(req) 
+```
+"""
 function grpc_async_request(
     client::gRPCClient{TRequest,true,TResponse,true},
     request::Channel{TRequest},
@@ -182,7 +257,11 @@ function grpc_async_request(
 end
 
 
+"""
+    grpc_async_await(client::gRPCClient{TRequest,true,TResponse,false},request::gRPCRequest) where {TRequest<:Any,TResponse<:Any} 
 
+Close all channels and wait for all sent and recieved messages to finish processing.
+"""
 grpc_async_await(
     client::gRPCClient{TRequest,true,TResponse,false},
     request::gRPCRequest,
