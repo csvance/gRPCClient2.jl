@@ -1,4 +1,4 @@
-
+#=
 function codegen(io, t::ServiceType, ctx::Context)
     namespace = join(ctx.proto_file.preamble.namespace, ".")
     service_name = t.name 
@@ -36,4 +36,5 @@ function codegen(io, t::ServiceType, ctx::Context)
         println(io, ")\n")
     end
 end
+=#
 

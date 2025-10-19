@@ -101,7 +101,7 @@ function grpc_async_request(
     response::Channel{TResponse},
 ) where {TRequest<:Any,TResponse<:Any}
 
-    request_buf = encode_request_iobuffer(request; max_send_message_length=max_send_message_length)
+    request_buf = grpc_encode_request_iobuffer(request; max_send_message_length=client.max_send_message_length)
     seekstart(request_buf)
 
     req = gRPCRequest(
@@ -150,4 +150,11 @@ function grpc_async_request(
 
     nothing
 end
+
+
+
+grpc_async_await(
+    client::gRPCClient{TRequest,true,TResponse,false},
+    request::gRPCRequest,
+) where {TRequest<:Any,TResponse<:Any} = grpc_async_await(request, TResponse)
 

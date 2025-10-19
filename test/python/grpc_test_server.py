@@ -31,6 +31,7 @@ class TestServiceServicer(test_pb2_grpc.TestServiceServicer):
         for request in request_iterator:
             rs += request.test_response_sz
 
+        print(rs)
         if not self.public:
             # For testing
             response_data = np.arange(rs, dtype=np.uint64)
@@ -43,12 +44,12 @@ class TestServiceServicer(test_pb2_grpc.TestServiceServicer):
         return test_pb2.TestResponse(data=response_data)
 
     def TestServerStreamRPC(self, request, context):
+
         if not self.public:
             # For testing
             for i in range(1, request.test_response_sz + 1):
                 response_data = np.arange(i, dtype=np.uint64)
                 response_data[:] += 1
-
                 yield test_pb2.TestResponse(data=response_data)
         else:
             # For precompile

@@ -339,6 +339,7 @@ function handle_write(req::gRPCRequest, buf::Vector{UInt8})
         let response = req.response 
             # Response is done, put it in the channel so it can be returned back to the user
             # We can't use put! inside of a C callback so create a task to handle it
+            seekstart(response)
             @async put!(req.response_c, response)
         end
         
