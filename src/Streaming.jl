@@ -260,7 +260,7 @@ end
 """
     grpc_async_await(client::gRPCClient{TRequest,true,TResponse,false},request::gRPCRequest) where {TRequest<:Any,TResponse<:Any} 
 
-Close all channels and wait for all sent and recieved messages to finish processing.
+Raise any exceptions encountered during the streaming request.
 """
 grpc_async_await(
     client::gRPCClient{TRequest,true,TResponse,false},
