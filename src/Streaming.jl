@@ -4,27 +4,33 @@ function grpc_async_stream_request(req::gRPCRequest, channel::Channel{TRequest})
         encode_buf = IOBuffer()
 
         while isnothing(req.ex)
-            request = take!(channel)
-            grpc_encode_request_iobuffer(request, encode_buf; max_send_message_length=req.max_send_message_length)
-            reqs_ready += 1
+            try 
+                request = take!(channel)
+                grpc_encode_request_iobuffer(request, encode_buf; max_send_message_length=req.max_send_message_length)
+                reqs_ready += 1
+            catch ex 
+                # Channel was closed, so flush all the requests in encode_buf
+                isa(ex, InvalidStateException) && wait(req.curl_done_reading)
+                rethrow(ex)
+            finally 
+                # Try to be smart about when we pass control to curl (we won't be able to encode protobufs during this time)
+                if reqs_ready > 0 && req.curl_done_reading.set && (isempty(channel) || reqs_ready >= 10 || encode_buf.size >= 8096)
+                    seekstart(encode_buf)
 
-            # Try to be smart about when we pass control to curl (we won't be able to encode protobufs during this time)
-            if req.curl_done_reading.set && (isempty(channel) || reqs_ready >= 10 || encode_buf.size >= 8096)
-                seekstart(encode_buf)
+                    # Wait for libCURL to not be reading anymore 
+                    wait(req.curl_done_reading)
 
-                # Wait for libCURL to not be reading anymore 
-                wait(req.curl_done_reading)
-                
-                # Write all of the encoded protobufs to the request read buffer
-                write(req.request, encode_buf)
+                    # Write all of the encoded protobufs to the request read buffer
+                    write(req.request, encode_buf)
 
-                # Tell curl we have more to send
-                curl_easy_pause(req.easy, CURLPAUSE_CONT)
+                    # Tell curl we have more to send
+                    curl_easy_pause(req.easy, CURLPAUSE_CONT)
 
-                # Reset the encode buffer
-                reqs_ready = 0
-                seekstart(encode_buf)
-                truncate(encode_buf, 0)
+                    # Reset the encode buffer
+                    reqs_ready = 0
+                    seekstart(encode_buf)
+                    truncate(encode_buf, 0)
+                end
             end
         end
     catch ex

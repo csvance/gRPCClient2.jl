@@ -146,8 +146,6 @@ end
 
 function grpc_async_await(req::gRPCRequest, TResponse)
     grpc_finalize_request(req)
-
-    seekstart(req.response)
     return decode(ProtoDecoder(req.response), TResponse)
 end
 

@@ -9,9 +9,6 @@ include("gen/test/test_pb.jl")
     # Initialize the global gRPCCURL structure
     grpc_init()
 
-    #=
-    
-
     @testset "@async varying request/response" begin
         client = TestService_TestRPC_Client("localhost", 8001)
 
@@ -138,7 +135,7 @@ include("gen/test/test_pb.jl")
             @test last(response.data) == i
         end
     end
-    =#
+
 
     @testset "Request Streaming" begin 
         N = 16
@@ -151,11 +148,36 @@ include("gen/test/test_pb.jl")
             put!(request_c, TestRequest(1, zeros(UInt64, 1)))
         end
 
+        # Finish sending requests
         close(request_c)
 
         response = grpc_async_await(client, request)
-        @info response
-
+        
+        @test length(response.data) == N
+        for i in 1:N
+            @test response.data[i] == i
+        end
     end
 
+    @testset "Bidirectional Streaming" begin 
+        N = 16
+        client = TestService_TestBidirectionalStreamRPC_Client("localhost", 8001)
+
+        request_c = Channel{TestRequest}(N)
+        response_c = Channel{TestResponse}(N)
+
+        grpc_async_request(client, request_c, response_c)
+
+        for i in 1:N
+            put!(request_c, TestRequest(i, zeros(UInt64, i)))
+        end
+
+        for i in 1:N
+            response = take!(response_c)
+            @test length(response.data) == i
+            @test last(response.data) == i
+        end
+
+        close(request_c)
+    end
 end

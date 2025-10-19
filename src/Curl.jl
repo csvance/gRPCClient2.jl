@@ -50,7 +50,6 @@ function read_callback(
     req_p::Ptr{Cvoid},
 )::Csize_t
     try
-
         req = unsafe_pointer_to_objref(req_p)::gRPCRequest
 
         # If streaming its no longer safe to write to request buffer
@@ -60,15 +59,19 @@ function read_callback(
         n_left = req.request.size - req.request_ptr
 
         n = size*count 
-        n_min = min(size * count, n_left)
+        n_min = min(n, n_left)
 
         ccall(:memcpy, Ptr{Cvoid}, (Ptr{Cvoid}, Ptr{Cvoid}, Csize_t), data, buf_p, n_min)
 
         req.request_ptr += n_min
 
         if isstreaming_request(req) && n_min == 0
+            
             # Keep sending until the channel is closed and empty
-            !isopen(req.request_c) && isempty(req.request_c) && return 0
+            if !isopen(req.request_c) && isempty(req.request_c) 
+                notify(req.curl_done_reading)
+                return 0
+            end
 
             seekstart(req.request)
             truncate(req.request, 0)
@@ -249,6 +252,10 @@ mutable struct gRPCRequest
         curl_easy_setopt(easy_handle, CURLOPT_HEADERDATA, req_p)
         curl_easy_setopt(easy_handle, CURLOPT_UPLOAD, true)
 
+        # Start paused and able to write the request
+        curl_easy_pause(easy_handle, CURLPAUSE_RECV)
+        notify(req.curl_done_reading)
+
         lock(grpc.lock) do
             if !grpc.running
                 curl_easy_cleanup(easy_handle)
@@ -281,7 +288,7 @@ function close(req::gRPCRequest)
 end
 
 
-function handle_write(req::gRPCRequest, buf::Vector{UInt8})
+function handle_write(req::gRPCRequest, buf::Vector{UInt8})    
     if !req.response_read_header
         header_bytes_left = GRPC_HEADER_SIZE - req.response.size
 
@@ -289,6 +296,7 @@ function handle_write(req::gRPCRequest, buf::Vector{UInt8})
             # Not enough data yet to read the entire header
             return write(req.response, buf)
         else 
+
             buf_header = buf[1:header_bytes_left]
             n = write(req.response, buf_header)
 
@@ -320,7 +328,7 @@ function handle_write(req::gRPCRequest, buf::Vector{UInt8})
                 buf_leftover = unsafe_wrap(Array, pointer(buf)+n, (leftover_bytes,))
                 n += handle_write(req, buf_leftover)
             end
-                    
+
             return n
         end
     end
@@ -369,6 +377,8 @@ function handle_write(req::gRPCRequest, buf::Vector{UInt8})
         end
 
         n = write(req.response, buf)
+        seekstart(req.response)
+
         notify(req.ready)
 
         return n

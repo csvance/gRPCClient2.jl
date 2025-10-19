@@ -15,7 +15,7 @@ function grpc_async_request(
     request_buf = grpc_encode_request_iobuffer(request; max_send_message_length=client.max_send_message_length)
     seekstart(request_buf)
 
-    gRPCRequest(
+    req = gRPCRequest(
         client.grpc,
         url(client),
         request_buf,
@@ -27,6 +27,10 @@ function grpc_async_request(
         max_send_message_length = client.max_send_message_length,
         max_recieve_message_length = client.max_recieve_message_length,
     )
+
+    curl_easy_pause(req.easy, CURLPAUSE_CONT)
+
+    req
 end
 
 
@@ -80,7 +84,7 @@ function grpc_async_request(
     request_buf = grpc_encode_request_iobuffer(request; max_send_message_length=client.max_send_message_length)
     seekstart(request_buf)
 
-    request = gRPCRequest(
+    req = gRPCRequest(
         client.grpc,
         url(client),
         request_buf,
@@ -93,9 +97,11 @@ function grpc_async_request(
         max_recieve_message_length = client.max_recieve_message_length,
     )
 
+    curl_easy_pause(req.easy, CURLPAUSE_CONT)
+
     Threads.@spawn begin
         try
-            response = grpc_async_await(client, request)
+            response = grpc_async_await(client, req)
             put!(channel, gRPCAsyncChannelResponse{TResponse}(index, response, nothing))
         catch ex
             put!(channel, gRPCAsyncChannelResponse{TResponse}(index, nothing, ex))
