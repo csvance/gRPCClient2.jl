@@ -50,41 +50,9 @@ grpc_register_service_codegen()
 protojl("test/proto/test.proto", ".", "test/gen")
 ```
 
-### Making Unary RPC Requests with gRPCClient2.jl
+## Example Usage
 
-```julia
-using gRPCClient2
-
-# Include the generated bindings
-include("test/gen/test/test_pb.jl")
-
-# Create a client bound to a specific RPC
-client = TestService_TestRPC_Client("localhost", 8001)
-
-# Make a syncronous request and get back a TestResponse
-response = grpc_sync_request(client, TestRequest(1, zeros(UInt64, 1)))
-@info response
-
-# Make some async requests and await their TestResponse
-requests = Vector{gRPCRequest}()
-for i in 1:10
-    push!(
-        requests, 
-        grpc_async_request(client, TestRequest(1, zeros(UInt64, 1)))
-    )
-end
-
-for request in requests
-    response = grpc_async_await(client, request)
-    @info response
-end
-```
-
-## Exceptions
-
-```@docs
-gRPCServiceCallException
-```
+See [here](#RPC) for examples covering all provided interfaces for both unary and streaming gRPC calls. 
 
 ## Package Initialization / Shutdown
 
@@ -112,4 +80,10 @@ grpc_async_request(client::gRPCClient{TRequest,true,TResponse,false}, request::C
 grpc_async_request(client::gRPCClient{TRequest,false,TResponse,true},request::TRequest,response::Channel{TResponse}) where {TRequest<:Any,TResponse<:Any}
 grpc_async_request(client::gRPCClient{TRequest,true,TResponse,true},request::Channel{TRequest},response::Channel{TResponse}) where {TRequest<:Any,TResponse<:Any}
 grpc_async_await(client::gRPCClient{TRequest,true,TResponse,false},request::gRPCRequest) where {TRequest<:Any,TResponse<:Any} 
+```
+
+## Exceptions
+
+```@docs
+gRPCServiceCallException
 ```
