@@ -3,11 +3,12 @@ function grpc_async_stream_request(
     channel::Channel{TRequest},
 ) where {TRequest<:Any}
     try
-        reqs_ready = 0
         encode_buf = IOBuffer()
+        reqs_ready = 0
 
         while isnothing(req.ex)
             try
+                # Always do a blocking take! once so we don't spin
                 request = take!(channel)
                 grpc_encode_request_iobuffer(
                     request,
@@ -15,15 +16,22 @@ function grpc_async_stream_request(
                     max_send_message_length = req.max_send_message_length,
                 )
                 reqs_ready += 1
+
+                # Try to get get more requests within reason to reduce request overhead interfacing with libcurl
+                # These numbers are made up and not based on any real performance testing
+                while !isempty(channel) && reqs_ready < 10 && encode_buf.size < 65535
+                    request = take!(channel)
+                    grpc_encode_request_iobuffer(
+                        request,
+                        encode_buf;
+                        max_send_message_length = req.max_send_message_length,
+                    )
+                    reqs_ready += 1
+                end
             catch ex
-                # Channel was closed, so flush all the requests in encode_buf
-                isa(ex, InvalidStateException) && wait(req.curl_done_reading)
                 rethrow(ex)
             finally
-                # Try to be smart about when we pass control to curl (we won't be able to encode protobufs during this time)
-                if reqs_ready > 0 &&
-                   req.curl_done_reading.set &&
-                   (isempty(channel) || reqs_ready >= 10 || encode_buf.size >= 8096)
+                if encode_buf.size > 0
                     seekstart(encode_buf)
 
                     # Wait for libCURL to not be reading anymore 
@@ -47,6 +55,8 @@ function grpc_async_stream_request(
         close(req)
 
         if isa(ex, InvalidStateException)
+            # Wait for any request data to be flushed by curl
+            wait(req.curl_done_reading)
             # Trigger a "return 0" in read_callback so curl ends the current request
             curl_easy_pause(req.easy, CURLPAUSE_CONT)
         elseif isa(ex, gRPCServiceCallException)
@@ -70,10 +80,12 @@ function grpc_async_stream_response(
 ) where {TResponse<:Any}
     try
         while isnothing(req.ex)
+            # Handle union split 
+            @assert !isnothing(req.response_c)
+
             response_buf = take!(req.response_c)
             response = decode(ProtoDecoder(response_buf), TResponse)
-
-            put!(channel, response)
+            put!(channel, response)                
         end
     catch ex
         close(channel)
