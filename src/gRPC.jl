@@ -113,10 +113,6 @@ grpc_encode_request_iobuffer(request; max_send_message_length = 4 * 1024 * 1024)
     )
 
 
-const regex_grpc_status = r"grpc-status: ([0-9]+)"
-const regex_grpc_message = Regex("grpc-message: (.*)", "s")
-
-
 function grpc_async_await(req::gRPCRequest)
     # Wait for request to be done
     wait(req)
@@ -129,20 +125,7 @@ function grpc_async_await(req::gRPCRequest)
     req.code != CURLE_OK &&
         throw(gRPCServiceCallException(GRPC_INTERNAL, nullstring(req.errbuf)))
 
-    grpc_status = GRPC_OK
-    grpc_message = ""
-
-    for header in req.headers
-        header = strip(header)
-
-        if (m_grpc_status = match(regex_grpc_status, header)) !== nothing
-            grpc_status = parse(UInt64, m_grpc_status.captures[1])
-        elseif (m_grpc_message = match(regex_grpc_message, header)) !== nothing
-            grpc_message = m_grpc_message.captures[1]
-        end
-    end
-
-    grpc_status != GRPC_OK && throw(gRPCServiceCallException(grpc_status, grpc_message))
+    req.grpc_status != GRPC_OK && throw(gRPCServiceCallException(req.grpc_status, req.grpc_message))
 end
 
 

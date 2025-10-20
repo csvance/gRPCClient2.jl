@@ -6,6 +6,34 @@
 Initiate an asynchronous gRPC request: send the request to the server and then immediately return a `gRPCRequest` object without waiting for the response. 
 In order to wait on / retrieve the result once its ready, call `grpc_async_await`.
 This is ideal when you need to send many requests in parallel and waiting on each response before sending the next request would things down.
+
+```julia
+using gRPCClient2
+
+# Include the generated bindings
+include("test/gen/test/test_pb.jl")
+
+# Create a client bound to a specific RPC
+client = TestService_TestRPC_Client("localhost", 8001)
+
+# Make a syncronous request and get back a TestResponse
+response = grpc_sync_request(client, TestRequest(1, zeros(UInt64, 1)))
+@info response
+
+# Make some async requests and await their TestResponse
+requests = Vector{gRPCRequest}()
+for i in 1:10
+    push!(
+        requests, 
+        grpc_async_request(client, TestRequest(1, zeros(UInt64, 1)))
+    )
+end
+
+for request in requests
+    response = grpc_async_await(client, request)
+    @info response
+end
+```
 """
 function grpc_async_request(
     client::gRPCClient{TRequest,false,TResponse,false},
