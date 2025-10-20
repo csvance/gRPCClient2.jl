@@ -10,6 +10,8 @@ This is ideal when you need to send many requests in parallel and waiting on eac
 ```julia
 using gRPCClient2
 
+grpc_init()
+
 # Include the generated bindings
 include("test/gen/test/test_pb.jl")
 
