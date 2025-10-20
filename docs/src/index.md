@@ -43,6 +43,9 @@ gRPCClient2.jl integrates with ProtoBuf.jl to automatically generate Julia clien
 using ProtoBuf
 using gRPCClient2
 
+# Register our service codegen with ProtoBuf.jl
+grpc_register_service_codegen()
+
 # Creates Julia bindings for the messages and RPC defined in test.proto
 protojl("test/proto/test.proto", ".", "test/gen")
 ```
