@@ -20,8 +20,14 @@ function write_callback(
         n = size * count
         buf = unsafe_wrap(Array, convert(Ptr{UInt8}, data), (n,))
 
-        # Handles all of the response stream data 
-        handled_n_bytes = handle_write(req, buf)
+        handled_n_bytes = try 
+            # Handles all of the response stream data 
+            handle_write(req, buf)
+        catch ex 
+            # Eat InvalidStateException raised on put! to closed channel
+            !isa(ex, InvalidStateException) && rethrow(ex)
+            n
+        end
 
         # If there was an exception handle it 
         !isnothing(req.ex) && return typemax(Csize_t)
@@ -51,9 +57,6 @@ function read_callback(
 )::Csize_t
     try
         req = unsafe_pointer_to_objref(req_p)::gRPCRequest
-
-        # If streaming its no longer safe to write to request buffer
-        reset(req.curl_done_reading)
 
         buf_p = pointer(req.request.data) + req.request_ptr
         n_left = req.request.size - req.request_ptr
@@ -280,12 +283,6 @@ isstreaming_response(req::gRPCRequest) = !isnothing(req.response_c)
 wait(req::gRPCRequest) = wait(req.ready)
 reset(req::gRPCRequest) = reset(req.ready)
 
-function close(req::gRPCRequest)
-    !isnothing(req.request_c) && isopen(req.request_c) && close(req.request_c)
-    !isnothing(req.response_c) && isopen(req.response_c) && close(req.response_c)
-    # TODO: close the connection
-end
-
 
 function handle_write(req::gRPCRequest, buf::Vector{UInt8})
     if !req.response_read_header
@@ -343,13 +340,11 @@ function handle_write(req::gRPCRequest, buf::Vector{UInt8})
         buf_complete = unsafe_wrap(Array, pointer(buf), (message_bytes_left,))
         n = write(req.response, buf_complete)
 
-        let response = req.response
-            # Response is done, put it in the channel so it can be returned back to the user
-            seekstart(response)
+        # Response is done, put it in the channel so it can be returned back to the user
+        seekstart(req.response)
 
-            # Is this valid (potentially blocking in C callback)
-            put!(req.response_c, response)
-        end
+        # Put the completed response protobuf buffer in the channel so it can be processed by the `grpc_async_stream_response` task
+        put!(req.response_c, req.response)
 
         # There might be another response after this so reset these
         req.response = IOBuffer()
