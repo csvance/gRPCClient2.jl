@@ -1,5 +1,4 @@
-#=
-function codegen(io, t::ServiceType, ctx::Context)
+function service_codegen_handler(io, t::ServiceType, ctx::Context)
     namespace = join(ctx.proto_file.preamble.namespace, ".")
     service_name = t.name 
 
@@ -36,4 +35,6 @@ function codegen(io, t::ServiceType, ctx::Context)
         println(io, ")\n")
     end
 end
-=#
+
+
+grpc_register_service_codegen() = register_service_codegen(service_codegen_handler)
