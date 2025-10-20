@@ -11,11 +11,8 @@ using Base: Semaphore, acquire, release
 
 import Base.wait,
     Base.reset, Base.notify, Base.isreadable, Base.iswritable, Base.close, Base.open
-import ProtoBuf.CodeGenerators.ServiceType,
-    ProtoBuf.CodeGenerators.RPCType,
-    ProtoBuf.CodeGenerators.Context,
-    ProtoBuf.CodeGenerators.codegen,
-    ProtoBuf.CodeGenerators.safename
+import ProtoBuf.CodeGenerators.ServiceType, ProtoBuf.CodeGenerators.Context, ProtoBuf.CodeGenerators.register_service_codegen
+
 
 abstract type gRPCException <: Exception end
 
@@ -91,6 +88,7 @@ include("ProtoBuf.jl")
 export grpc_init
 export grpc_shutdown
 export grpc_global_handle
+export grpc_register_service_codegen
 
 export grpc_async_request
 export grpc_async_await
@@ -104,9 +102,11 @@ export gRPCAsyncChannelResponse
 export gRPCException
 export gRPCServiceCallException
 
+
 @setup_workload begin
     # We don't have a Julia gRPC server so call my Linode's public gRPC endpoint
     TEST_HOST = "172.238.177.88"
+    # TODO: change this to port 80 to fix issues with corporate firewalls
     TEST_PORT = 8001
 
     @compile_workload begin
