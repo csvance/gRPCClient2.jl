@@ -92,6 +92,9 @@ function read_callback(
     end
 end
 
+const regex_grpc_status = r"grpc-status: ([0-9]+)"
+const regex_grpc_message = Regex("grpc-message: (.*)", "s")
+
 
 function header_callback(
     data::Ptr{Cchar},
@@ -102,8 +105,16 @@ function header_callback(
     try
         req = unsafe_pointer_to_objref(req_p)::gRPCRequest
         n = size * count
-        hdr = unsafe_string(data, n)
-        push!(req.headers, hdr)
+
+        header = unsafe_string(data, n)
+        header = strip(header)
+
+        if (m_grpc_status = match(regex_grpc_status, header)) !== nothing
+            req.grpc_status = parse(UInt64, m_grpc_status.captures[1])
+        elseif (m_grpc_message = match(regex_grpc_message, header)) !== nothing
+            req.grpc_message = m_grpc_message.captures[1]
+        end
+
         return n
     catch err
         @async @error("header_callback: unexpected error", err = err, maxlog = 1_000)
@@ -114,6 +125,7 @@ end
 
 
 mutable struct gRPCRequest
+    lock::ReentrantLock
     easy::Ptr{Cvoid}
     multi::Ptr{Cvoid}
     url::String
@@ -134,6 +146,9 @@ mutable struct gRPCRequest
     response_compressed::Bool
     response_length::UInt32
     curl_done_reading::Event
+    grpc_status::Int64
+    grpc_message::String
+
 
     function gRPCRequest(
         grpc,
@@ -208,6 +223,7 @@ mutable struct gRPCRequest
         curl_easy_setopt(easy_handle, CURLOPT_TCP_KEEPIDLE, keepalive)
 
         req = new(
+            grpc.lock,
             easy_handle,
             grpc.multi,
             http_url,
@@ -227,6 +243,8 @@ mutable struct gRPCRequest
             false,
             0,
             Event(),
+            GRPC_OK,
+            ""
         )
 
         req_p = pointer_from_objref(req)

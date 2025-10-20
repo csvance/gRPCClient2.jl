@@ -44,7 +44,9 @@ function grpc_async_stream_request(
                     reset(req.curl_done_reading)
 
                     # Tell curl we have more to send
-                    curl_easy_pause(req.easy, CURLPAUSE_CONT)
+                    lock(req.lock) do
+                        curl_easy_pause(req.easy, CURLPAUSE_CONT)
+                    end
 
                     # Reset the encode buffer
                     reqs_ready = 0
@@ -60,8 +62,12 @@ function grpc_async_stream_request(
         if isa(ex, InvalidStateException)
             # Wait for any request data to be flushed by curl
             wait(req.curl_done_reading)
+
             # Trigger a "return 0" in read_callback so curl ends the current request
-            curl_easy_pause(req.easy, CURLPAUSE_CONT)
+            lock(req.lock) do
+                curl_easy_pause(req.easy, CURLPAUSE_CONT)
+            end
+
         elseif isa(ex, gRPCServiceCallException)
             if isnothing(req.ex)
                 req.ex = ex
