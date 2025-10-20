@@ -40,6 +40,9 @@ function grpc_async_stream_request(
                     # Write all of the encoded protobufs to the request read buffer
                     write(req.request, encode_buf)
 
+                    # Block on the next wait until cleared by the curl read_callback
+                    reset(req.curl_done_reading)
+
                     # Tell curl we have more to send
                     curl_easy_pause(req.easy, CURLPAUSE_CONT)
 
@@ -52,7 +55,7 @@ function grpc_async_stream_request(
         end
     catch ex
         close(channel)
-        close(req)
+        close(req.request_c)
 
         if isa(ex, InvalidStateException)
             # Wait for any request data to be flushed by curl
@@ -80,16 +83,13 @@ function grpc_async_stream_response(
 ) where {TResponse<:Any}
     try
         while isnothing(req.ex)
-            # Handle union split 
-            @assert !isnothing(req.response_c)
-
             response_buf = take!(req.response_c)
             response = decode(ProtoDecoder(response_buf), TResponse)
             put!(channel, response)                
         end
     catch ex
         close(channel)
-        close(req)
+        close(req.response_c)
 
         if isa(ex, InvalidStateException)
 
