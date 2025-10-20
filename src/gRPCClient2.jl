@@ -105,7 +105,7 @@ export gRPCServiceCallException
 
 @setup_workload begin
     # We don't have a Julia gRPC server so call my Linode's public gRPC endpoint
-    TEST_HOST = "172.238.177.88"
+    TEST_HOST = "172.238.177.88" 
     # TODO: change this to port 80 to fix issues with corporate firewalls
     TEST_PORT = 8001
 
