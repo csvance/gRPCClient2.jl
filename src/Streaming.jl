@@ -71,10 +71,12 @@ function grpc_async_stream_request(
         elseif isa(ex, gRPCServiceCallException)
             if isnothing(req.ex)
                 req.ex = ex
+                notify(req.ready)
             end
         else
             if isnothing(req.ex)
                 req.ex = ex
+                notify(req.ready)
             end
             @error "grpc_async_stream_request: unexpected exception" exception = ex
         end
@@ -102,10 +104,12 @@ function grpc_async_stream_response(
         elseif isa(ex, gRPCServiceCallException)
             if isnothing(req.ex)
                 req.ex = ex
+                notify(req.ready)
             end
         else
             if isnothing(req.ex)
                 req.ex = ex
+                notify(req.ready)
             end
             @error "grpc_async_stream_response: unexpected exception" exception = ex
         end

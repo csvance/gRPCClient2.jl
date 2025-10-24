@@ -114,6 +114,7 @@ function header_callback(
 
         if (m_grpc_status = match(regex_grpc_status, header)) !== nothing
             req.grpc_status = parse(UInt64, m_grpc_status.captures[1])
+            notify(req.ready)
         elseif (m_grpc_message = match(regex_grpc_message, header)) !== nothing
             req.grpc_message = m_grpc_message.captures[1]
         end
@@ -128,30 +129,55 @@ end
 
 
 mutable struct gRPCRequest
+    # CURL multi lock for exclusive access to the easy handle after its added to the multi
     lock::ReentrantLock
+
+    # CURL easy handle 
     easy::Ptr{Cvoid}
+    # CURL multi handle
     multi::Ptr{Cvoid}
+
+    # The full request URL 
     url::String
+
+    # Contains the request data which will be uploaded in read_callback
     request::IOBuffer
+
+    # Tracks the current location inside request for the read_callback
+    request_ptr::Int64
+
+    # Holds the current response in the response stream
     response::IOBuffer
+
     # These are only used when the request or response is streaming
     request_c::Union{Nothing,Channel{IOBuffer}}
     response_c::Union{Nothing,Channel{IOBuffer}}
-    code::CURLcode
+
+    # The task making the request can block on this until the request is complete
     ready::Event
+
+    # CURL status code and error message
+    code::CURLcode
     errbuf::Vector{UInt8}
-    headers::Vector{String}
-    request_ptr::Int64
+
+    # Used to enforce maximum send / recv message sizes
     max_send_message_length::Int64
     max_recieve_message_length::Int64
+
+    # Contains the first exception if any encountered during the request
     ex::Union{Nothing,Exception}
+
+    # Keeps track of the response stream parsing state
     response_read_header::Bool
     response_compressed::Bool
     response_length::UInt32
+
+    # When this is set we can write to the request upload buffer because curl is not reading from it
     curl_done_reading::Event
+
+    # Response headers
     grpc_status::Int64
     grpc_message::String
-
 
     function gRPCRequest(
         grpc,
@@ -170,6 +196,7 @@ mutable struct gRPCRequest
 
         easy_handle = curl_easy_init()
 
+        # Uncomment this for debugging purposes
         # curl_easy_setopt(easy_handle, CURLOPT_VERBOSE, UInt32(1))
 
         http_url = replace(url, "grpc://" => "http://")
@@ -230,14 +257,13 @@ mutable struct gRPCRequest
             grpc.multi,
             http_url,
             request,
+            0,
             response,
             request_c,
             response_c,
-            UInt32(0),
             Event(),
+            UInt32(0),
             zeros(UInt8, CURL_ERROR_SIZE),
-            Vector{String}(),
-            0,
             max_send_message_length,
             max_recieve_message_length,
             nothing,
@@ -323,12 +349,14 @@ function handle_write(req::gRPCRequest, buf::Vector{UInt8})
                     GRPC_UNIMPLEMENTED,
                     "Response was compressed but compression is not currently supported.",
                 )
+                notify(req.ready)
                 return n
             elseif req.response_length > req.max_recieve_message_length
                 req.ex = gRPCServiceCallException(
                     GRPC_RESOURCE_EXHAUSTED,
                     "length-prefix longer than max_recieve_message_length: $(req.response_length) > $(req.max_recieve_message_length)",
                 )
+                notify(req.ready)
                 return n
             end
 
@@ -385,13 +413,12 @@ function handle_write(req::gRPCRequest, buf::Vector{UInt8})
                 GRPC_RESOURCE_EXHAUSTED,
                 "Response was longer than declared in length-prefix.",
             )
+            notify(req.ready)
             return 0
         end
 
         n = write(req.response, buf)
         seekstart(req.response)
-
-        notify(req.ready)
 
         return n
     end
