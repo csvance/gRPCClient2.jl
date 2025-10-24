@@ -64,6 +64,7 @@ function grpc_async_stream_request(
             wait(req.curl_done_reading)
 
             # Trigger a "return 0" in read_callback so curl ends the current request
+            reset(req.curl_done_reading)
             lock(req.lock) do
                 curl_easy_pause(req.easy, CURLPAUSE_CONT)
             end

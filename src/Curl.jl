@@ -58,6 +58,9 @@ function read_callback(
     try
         req = unsafe_pointer_to_objref(req_p)::gRPCRequest
 
+        # Check for race condition
+        @assert !req.curl_done_reading.set
+
         buf_p = pointer(req.request.data) + req.request_ptr
         n_left = req.request.size - req.request_ptr
 
@@ -162,7 +165,6 @@ mutable struct gRPCRequest
         max_send_message_length = 4 * 1024 * 1024,
         max_recieve_message_length = 4 * 1024 * 1024,
     )
-
         # Reduce number of available requests by one or block if its currently zero
         acquire(grpc.sem)
 
@@ -272,9 +274,6 @@ mutable struct gRPCRequest
         curl_easy_setopt(easy_handle, CURLOPT_HEADERDATA, req_p)
         curl_easy_setopt(easy_handle, CURLOPT_UPLOAD, true)
 
-        # Start paused and able to write the request
-        curl_easy_pause(easy_handle, CURLPAUSE_RECV)
-        notify(req.curl_done_reading)
 
         lock(grpc.lock) do
             if !grpc.running
