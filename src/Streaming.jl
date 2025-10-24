@@ -18,8 +18,7 @@ function grpc_async_stream_request(
                 reqs_ready += 1
 
                 # Try to get get more requests within reason to reduce request overhead interfacing with libcurl
-                # These numbers are made up and not based on any real performance testing
-                while !isempty(channel) && reqs_ready < 10 && encode_buf.size < 65535
+                while !isempty(channel) && reqs_ready < 100 && encode_buf.size < 65535
                     request = take!(channel)
                     grpc_encode_request_iobuffer(
                         request,
