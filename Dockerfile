@@ -11,7 +11,6 @@ ENV PATH=$PATH:/root/.local/bin
 
 # Copy all needed files
 RUN mkdir -p /test
-COPY Manifest.toml /test 
 COPY Project.toml /test 
 ADD src /test/src
 RUN mkdir -p /test/test
