@@ -20,10 +20,10 @@ function write_callback(
         n = size * count
         buf = unsafe_wrap(Array, convert(Ptr{UInt8}, data), (n,))
 
-        handled_n_bytes = try 
+        handled_n_bytes = try
             # Handles all of the response stream data 
             handle_write(req, buf)
-        catch ex 
+        catch ex
             # Eat InvalidStateException raised on put! to closed channel
             !isa(ex, InvalidStateException) && rethrow(ex)
             n
@@ -244,7 +244,7 @@ mutable struct gRPCRequest
             0,
             Event(),
             GRPC_OK,
-            ""
+            "",
         )
 
         req_p = pointer_from_objref(req)
@@ -404,13 +404,13 @@ function timer_callback(multi_h::Ptr{Cvoid}, timeout_ms::Clong, grpc_p::Ptr{Cvoi
     try
         grpc = unsafe_pointer_to_objref(grpc_p)::gRPCCURL
         @assert multi_h == grpc.multi
+
         stoptimer!(grpc)
+
         if timeout_ms >= 0
             grpc.timer = Timer(timeout_ms / 1000) do timer
                 lock(grpc.lock) do
                     !grpc.running && return
-                    grpc.timer === timer || return
-                    grpc.timer = nothing
                     curl_multi_socket_action(
                         grpc.multi,
                         CURL_SOCKET_TIMEOUT,
@@ -420,14 +420,8 @@ function timer_callback(multi_h::Ptr{Cvoid}, timeout_ms::Clong, grpc_p::Ptr{Cvoi
                     check_multi_info(grpc)
                 end
             end
-        elseif timeout_ms != -1
-            @async @error(
-                "timer_callback: invalid timeout value",
-                timeout_ms,
-                maxlog = 1_000
-            )
-            return -1
         end
+
         return 0
     catch err
         @async @error("timer_callback: unexpected error", err = err, maxlog = 1_000)
@@ -487,18 +481,15 @@ function socket_callback(
                 # We already have a watcher for this sock
                 watcher = grpc.watchers[sock]
 
-                # Check if the watch flags are changing
-                if isreadable(watcher) != readable || iswritable(watcher) == writable
-                    # Reset the ready event and trigger an EOFError
-                    reset(watcher.ready)
-                    close(watcher.fdw)
+                # Reset the ready event and trigger an EOFError
+                reset(watcher.ready)
+                close(watcher.fdw)
 
-                    # Update the FDWatcher with the new flags
-                    watcher.fdw = FDWatcher(OS_HANDLE(sock), readable, writable)
+                # Update the FDWatcher with the new flags
+                watcher.fdw = FDWatcher(OS_HANDLE(sock), readable, writable)
 
-                    # Start waiting on the socket with the new flags
-                    notify(watcher.ready)
-                end
+                # Start waiting on the socket with the new flags
+                notify(watcher.ready)
 
                 return 0
             end
@@ -687,6 +678,7 @@ function check_multi_info(grpc::gRPCCURL)
         end
     end
 end
+
 
 
 function stoptimer!(grpc::gRPCCURL)
