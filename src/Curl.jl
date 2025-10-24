@@ -114,7 +114,6 @@ function header_callback(
 
         if (m_grpc_status = match(regex_grpc_status, header)) !== nothing
             req.grpc_status = parse(UInt64, m_grpc_status.captures[1])
-            notify(req.ready)
         elseif (m_grpc_message = match(regex_grpc_message, header)) !== nothing
             req.grpc_message = m_grpc_message.captures[1]
         end
@@ -695,6 +694,8 @@ function check_multi_info(grpc::gRPCCURL)
             curl_easy_cleanup(req.easy)
 
             grpc.requests = filter(x -> x !== req, grpc.requests)
+
+            # Request is all done, notify anything blocking on it
             notify(req.ready)
 
             # Allow a new request now that this one is complete
