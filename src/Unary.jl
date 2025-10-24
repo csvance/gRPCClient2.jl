@@ -61,7 +61,9 @@ function grpc_async_request(
         max_recieve_message_length = client.max_recieve_message_length,
     )
 
-    curl_easy_pause(req.easy, CURLPAUSE_CONT)
+    lock(req.lock) do
+        curl_easy_pause(req.easy, CURLPAUSE_CONT)
+    end
 
     req
 end
@@ -133,7 +135,9 @@ function grpc_async_request(
         max_recieve_message_length = client.max_recieve_message_length,
     )
 
-    curl_easy_pause(req.easy, CURLPAUSE_CONT)
+    lock(req.lock) do
+        curl_easy_pause(req.easy, CURLPAUSE_CONT)
+    end
 
     Threads.@spawn begin
         try

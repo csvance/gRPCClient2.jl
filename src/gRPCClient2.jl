@@ -11,7 +11,8 @@ using Base: Semaphore, acquire, release
 
 import Base.wait,
     Base.reset, Base.notify, Base.isreadable, Base.iswritable, Base.close, Base.open
-import ProtoBuf.CodeGenerators.ServiceType, ProtoBuf.CodeGenerators.Context, ProtoBuf.CodeGenerators.register_service_codegen
+import ProtoBuf.CodeGenerators.ServiceType,
+    ProtoBuf.CodeGenerators.Context, ProtoBuf.CodeGenerators.register_service_codegen
 
 
 abstract type gRPCException <: Exception end
@@ -132,7 +133,8 @@ export gRPCServiceCallException
         request_c = Channel{TestRequest}(16)
         put!(request_c, TestRequest(1, zeros(UInt64, 1)))
         close(request_c)
-        test_response = grpc_async_await(client_request, grpc_async_request(client_request, request_c))
+        test_response =
+            grpc_async_await(client_request, grpc_async_request(client_request, request_c))
 
         # Response 
         client_response = TestService_TestServerStreamRPC_Client(TEST_HOST, TEST_PORT)
@@ -146,7 +148,8 @@ export gRPCServiceCallException
         grpc_async_await(req)
 
         # Bidirectional 
-        client_bidirectional = TestService_TestBidirectionalStreamRPC_Client(TEST_HOST, TEST_PORT)
+        client_bidirectional =
+            TestService_TestBidirectionalStreamRPC_Client(TEST_HOST, TEST_PORT)
         request_c = Channel{TestRequest}(16)
         response_c = Channel{TestResponse}(16)
         put!(request_c, TestRequest(1, zeros(UInt64, 1)))

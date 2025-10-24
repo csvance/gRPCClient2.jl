@@ -125,7 +125,8 @@ function grpc_async_await(req::gRPCRequest)
     req.code != CURLE_OK &&
         throw(gRPCServiceCallException(GRPC_INTERNAL, nullstring(req.errbuf)))
 
-    req.grpc_status != GRPC_OK && throw(gRPCServiceCallException(req.grpc_status, req.grpc_message))
+    req.grpc_status != GRPC_OK &&
+        throw(gRPCServiceCallException(req.grpc_status, req.grpc_message))
 end
 
 

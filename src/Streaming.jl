@@ -91,7 +91,7 @@ function grpc_async_stream_response(
         while isnothing(req.ex)
             response_buf = take!(req.response_c)
             response = decode(ProtoDecoder(response_buf), TResponse)
-            put!(channel, response)                
+            put!(channel, response)
         end
     catch ex
         close(channel)
