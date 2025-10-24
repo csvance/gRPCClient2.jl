@@ -35,7 +35,9 @@ uv run grpc_test_server.py
 
 ### Code Generation
 
-**Note: this is currently disabled due to blocking issues in ProtoBuf.jl. See [here](https://github.com/JuliaIO/ProtoBuf.jl/pull/283) for more information.**
+**Note: support for this is currently being upstreaming into [ProtoBuf.jl](https://github.com/JuliaIO/ProtoBuf.jl/pull/283). Until then, make sure you add the development branch which supports code generation:**
+
+`pkg> add https://github.com/csvance/ProtoBuf.jl.git#1727adbc3a7d95f91ef23addb1d04e2b49d0647c`
 
 gRPCClient2.jl integrates with ProtoBuf.jl to automatically generate Julia client stubs for calling gRPC. 
 
