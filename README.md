@@ -27,19 +27,19 @@ Smol benchmarks sending and recieving lots of extremely small protobuffs (~16 by
 ```julia
 # Note that there are 1_000 RPC calls per sample, so the mean should be divided by 1_000
 julia> benchmark_workload_smol()
-BenchmarkTools.Trial: 36 samples with 1 evaluation per sample.
- Range (min … max):  114.194 ms … 186.045 ms  ┊ GC (min … max): 0.00% … 3.92%
- Time  (median):     140.381 ms               ┊ GC (median):    0.00%
- Time  (mean ± σ):   139.837 ms ±  10.813 ms  ┊ GC (mean ± σ):  0.40% ± 1.24%
+BenchmarkTools.Trial: 41 samples with 1 evaluation per sample.
+ Range (min … max):  108.345 ms … 135.084 ms  ┊ GC (min … max): 0.00% … 7.75%
+ Time  (median):     123.482 ms               ┊ GC (median):    0.00%
+ Time  (mean ± σ):   122.444 ms ±   6.091 ms  ┊ GC (mean ± σ):  0.33% ± 1.41%
 
-                 ▂      █▅▂▂                                     
-  ▅▁▁▁▁▁▁▁▁▅█▁▁▁██▅▁▅▅▅███████▁▁▁▅▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▅ ▁
-  114 ms           Histogram: frequency by time          186 ms <
+                               █   ▃▃▃█ █  █ ▃                   
+  ▇▁▇▁▁▁▁▇▇▁▁▁▇▁▁▁▁▇▇▇▇▇▁▇▁▇▇▁▁█▁▇▁████▁█▇▁█▇█▁▁▁▁▁▇▇▇▁▁▁▁▇▁▁▁▇ ▁
+  108 ms           Histogram: frequency by time          135 ms <
 
- Memory estimate: 4.78 MiB, allocs estimate: 97808.
+ Memory estimate: 4.27 MiB, allocs estimate: 93559.
  ```
 
- The mean RPC throughput is 7151 request/sec (139 μs/request).
+ The mean RPC throughput is 8166 request/sec.
 
  ### (32, 224, 224) UInt8 Batch Inference
 
@@ -48,19 +48,19 @@ BenchmarkTools.Trial: 36 samples with 1 evaluation per sample.
 ```julia
 # Note that there are 100 RPC calls per sample, so the mean should be divided by 100
 julia> benchmark_workload_32_224_224_uint8()
-BenchmarkTools.Trial: 37 samples with 1 evaluation per sample.
- Range (min … max):  125.651 ms … 163.918 ms  ┊ GC (min … max): 2.40% … 4.03%
- Time  (median):     134.001 ms               ┊ GC (median):    2.48%
- Time  (mean ± σ):   135.411 ms ±   8.024 ms  ┊ GC (mean ± σ):  2.50% ± 0.41%
+BenchmarkTools.Trial: 27 samples with 1 evaluation per sample.
+ Range (min … max):  151.472 ms … 225.548 ms  ┊ GC (min … max): 1.17% … 10.24%
+ Time  (median):     186.578 ms               ┊ GC (median):    1.32%
+ Time  (mean ± σ):   187.099 ms ±  17.970 ms  ┊ GC (mean ± σ):  3.72% ±  4.59%
 
-         ▂▂    █     ▂                                           
-  ▅▁▅▅▅▁███▅█▁███▅▅▅██▁▁▁▁▅▁▁▁▁▁▅▁▁▁▁▁▅▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▅▁▁▅ ▁
-  126 ms           Histogram: frequency by time          164 ms <
+              ▃          ▃    █ ▃                                
+  ▇▁▁▁▁▁▇▁▁▁▁▇█▁▇▇▁▁▁▁▁▁▇█▁▁▇▁█▁█▇▁▁▇▁▁▇▇▇▇▁▁▇▇▁▁▇▁▁▁▁▁▁▁▁▇▁▁▁▇ ▁
+  151 ms           Histogram: frequency by time          226 ms <
 
- Memory estimate: 222.25 MiB, allocs estimate: 25909.
+ Memory estimate: 64.00 MiB, allocs estimate: 12943.
 ```
 
-The mean RPC throughput is ~738 request/sec (1.35 ms/request).
+The mean RPC throughput is ~534 request/sec.
 
 ## Stress Testing
 
