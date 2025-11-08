@@ -7,25 +7,19 @@ include("test/gen/test/test_pb.jl")
 
 function workload_32_224_224_uint8(n)
     client = TestService_TestRPC_Client("localhost", 8001)
-    response_c = Channel{gRPCAsyncChannelResponse{TestResponse}}(16)
+
+    reqs = Vector{gRPCRequest}()
 
     send_sz = 32*224*224÷sizeof(UInt64)
     # Pre-allocate this so we are measuring gRPC client performance without external allocations
     test_buf = zeros(UInt64, send_sz)
 
-    # Requests are large, use the channel interface for better performance
-    @sync begin
-        Threads.@spawn begin 
-            for i in 1:n
-                grpc_async_request(client, TestRequest(32, test_buf), response_c, i)
-            end
-        end
-
-        Threads.@spawn begin
-            for i in 1:n
-                take!(response_c)
-            end
-        end
+    for i in 1:n
+        req = grpc_async_request(client, TestRequest(32, test_buf))
+        push!(reqs, req)
+    end
+    for req in reqs
+        grpc_async_await(req)
     end
 end
 
