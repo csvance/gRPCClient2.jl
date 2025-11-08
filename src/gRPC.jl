@@ -120,7 +120,8 @@ function grpc_async_await(req::gRPCRequest)
     # Throw an exception for this request if we have one
     !isnothing(req.ex) && throw(req.ex)
 
-    req.grpc_status != GRPC_OK && throw(gRPCServiceCallException(req.grpc_status, req.grpc_message))
+    req.grpc_status != GRPC_OK &&
+        throw(gRPCServiceCallException(req.grpc_status, req.grpc_message))
 
     req.code == CURLE_OPERATION_TIMEDOUT &&
         throw(gRPCServiceCallException(GRPC_DEADLINE_EXCEEDED, "Deadline exceeded."))

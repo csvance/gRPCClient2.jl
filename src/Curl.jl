@@ -322,8 +322,8 @@ end
 isstreaming_request(req::gRPCRequest) = !isnothing(req.request_c)
 isstreaming_response(req::gRPCRequest) = !isnothing(req.response_c)
 
-wait(req::gRPCRequest) = wait(req.ready)
-reset(req::gRPCRequest) = reset(req.ready)
+Base.wait(req::gRPCRequest) = wait(req.ready)
+Base.reset(req::gRPCRequest) = reset(req.ready)
 
 
 function handle_write(req::gRPCRequest, buf::Vector{UInt8})
@@ -469,9 +469,9 @@ mutable struct CURLWatcher
     end
 end
 
-isreadable(w::CURLWatcher) = w.fdw.readable
-iswritable(w::CURLWatcher) = w.fdw.writable
-function close(w::CURLWatcher)
+Base.isreadable(w::CURLWatcher) = w.fdw.readable
+Base.iswritable(w::CURLWatcher) = w.fdw.writable
+function Base.close(w::CURLWatcher)
     w.running = false
     notify(w.ready)
     close(w.fdw)
@@ -541,10 +541,23 @@ function socket_callback(
                         CURL_CSELECT_OUT * iswritable(events) +
                         CURL_CSELECT_ERR * (events.disconnect || events.timedout)
 
+                    n_recursive_spin = 0
                     lock(grpc.lock) do
-                        curl_multi_socket_action(grpc.multi, sock, flags, Ref{Cint}())
+                        while (
+                            status = curl_multi_socket_action(
+                                grpc.multi,
+                                sock,
+                                flags,
+                                Ref{Cint}(),
+                            )
+                        ) == CURLM_RECURSIVE_API_CALL
+                            n_recursive_spin += 1
+                        end
+                        @assert status == CURLM_OK
                         check_multi_info(grpc)
                     end
+                    n_recursive_spin > 0 &&
+                        @warn "curl_multi_socket_action CURLM_RECURSIVE_API_CALL spun $n_recursive_spin times."
                 end
 
                 # If the multi handle was shutdown, return without doing any operations on it
@@ -618,7 +631,7 @@ mutable struct gRPCCURL
     end
 end
 
-function close(grpc::gRPCCURL)
+function Base.close(grpc::gRPCCURL)
     # Lock free way to get exclusive access to grpc.watchers
     grpc.running = false
     sleep(0.25)
@@ -651,7 +664,7 @@ function close(grpc::gRPCCURL)
     nothing
 end
 
-function open(grpc::gRPCCURL)
+function Base.open(grpc::gRPCCURL)
     lock(grpc.lock) do
         if grpc.multi != Ptr{Cvoid}(0)
             return
