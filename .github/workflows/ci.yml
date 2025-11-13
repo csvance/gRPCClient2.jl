@@ -7,14 +7,13 @@ on:
     branches: [ "master" ]
 
 env:
-  GRPC_TEST_SERVER_HOST: "grpc-test-server"
+  GRPC_TEST_SERVER_HOST: "localhost"
   GRPC_TEST_SERVER_PORT: 8001
 
 jobs:
   test:
     name: Julia ${{ matrix.version }} - ${{ matrix.os }} - ${{ matrix.arch }} - ${{ github.event_name }}
     runs-on: ${{ matrix.os }}
-    container: ubuntu
     strategy:
       fail-fast: false
       matrix:
