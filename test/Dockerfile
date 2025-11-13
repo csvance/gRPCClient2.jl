@@ -25,5 +25,8 @@ RUN cd /test && uv sync
 COPY python/entrypoint.sh /test
 RUN touch /test/.healthcheck
 
+ENV GRPC_TEST_SERVER_HOST=0.0.0.0
+ENV GRPC_TEST_SERVER_PORT=8001
+
 ENTRYPOINT /test/entrypoint.sh
 HEALTHCHECK --interval=1s CMD bash -c '[ -e /test/.healthy ]' || exit 1
