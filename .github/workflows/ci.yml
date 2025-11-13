@@ -8,7 +8,7 @@ on:
 
 env:
   GRPC_TEST_SERVER_HOST: "localhost"
-  GRPC_TEST_SERVER_PORT: 8001
+  GRPC_TEST_SERVER_PORT: 8001 
 
 jobs:
   test:
