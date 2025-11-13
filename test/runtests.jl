@@ -2,6 +2,26 @@ using Test
 using ProtoBuf 
 using gRPCClient2
 
+
+function _get_test_host()
+    if "GRPC_TEST_SERVER_HOST" in keys(ENV)
+        ENV["GRPC_TEST_SERVER_HOST"]
+    else
+        "localhost"
+    end
+end
+
+function _get_test_port()
+    if "GRPC_TEST_SERVER_PORT" in keys(ENV)
+        parse(UInt16, ENV["GRPC_TEST_SERVER_PORT"])
+    else
+        8001
+    end
+end
+
+const _TEST_HOST = _get_test_host()
+const _TEST_PORT = _get_test_port()
+
 # protobuf and service definitions for our tests
 include("gen/test/test_pb.jl")
 
@@ -9,8 +29,8 @@ include("gen/test/test_pb.jl")
     # Initialize the global gRPCCURL structure
     grpc_init()
 
-    @testset "@async varying request/response" begin
-        client = TestService_TestRPC_Client("localhost", 8001)
+    # @testset "@async varying request/response" begin
+        client = TestService_TestRPC_Client(_TEST_HOST, _TEST_PORT)
 
         requests = Vector{gRPCRequest}()
         for i in 1:1000
@@ -26,10 +46,10 @@ include("gen/test/test_pb.jl")
                 @test di == dv
             end
         end
-    end
+    # end
 
-    @testset "@async small request/response" begin 
-        client = TestService_TestRPC_Client("localhost", 8001)
+    # @testset "@async small request/response" begin 
+        client = TestService_TestRPC_Client(_TEST_HOST, _TEST_PORT)
 
         requests = Vector{gRPCRequest}()
         for i in 1:1000
@@ -42,10 +62,10 @@ include("gen/test/test_pb.jl")
             @test length(response.data) == 1
             @test response.data[1] == 1
         end
-    end 
+    # end 
 
-    @testset "@async big request/response" begin 
-        client = TestService_TestRPC_Client("localhost", 8001)
+    # @testset "@async big request/response" begin 
+        client = TestService_TestRPC_Client(_TEST_HOST, _TEST_PORT)
 
         requests = Vector{gRPCRequest}()
         for i in 1:100
@@ -58,10 +78,10 @@ include("gen/test/test_pb.jl")
             response = grpc_async_await(client, request)
             @test length(response.data) == 64
         end
-    end 
+    # end 
 
-    @testset "Threads.@spawn small request/response" begin
-        client = TestService_TestRPC_Client("localhost", 8001)
+    # @testset "Threads.@spawn small request/response" begin
+        client = TestService_TestRPC_Client(_TEST_HOST, _TEST_PORT)
 
         responses = [TestResponse(Vector{UInt64}()) for _ in 1:1000]
 
@@ -74,10 +94,10 @@ include("gen/test/test_pb.jl")
             @test length(response.data) == 1
             @test response.data[1] == 1
         end
-    end
+    # end
 
-    @testset "Threads.@spawn varying request/response" begin
-        client = TestService_TestRPC_Client("localhost", 8001)
+    # @testset "Threads.@spawn varying request/response" begin
+        client = TestService_TestRPC_Client(_TEST_HOST, _TEST_PORT)
 
         responses = [TestResponse(Vector{UInt64}()) for _ in 1:1000]
 
@@ -92,20 +112,20 @@ include("gen/test/test_pb.jl")
                 @test di == dv
             end
         end
-    end
+    # end
 
-    @testset "Max Message Size" begin 
+    # @testset "Max Message Size" begin 
         # Create a client with much more restictive max message lengths
-        client = TestService_TestRPC_Client("localhost", 8001; max_send_message_length=1024, max_recieve_message_length=1024)
+        client = TestService_TestRPC_Client(_TEST_HOST, _TEST_PORT; max_send_message_length=1024, max_recieve_message_length=1024)
 
         # Send too much 
         @test_throws gRPCServiceCallException grpc_sync_request(client, TestRequest(1, zeros(UInt64, 1024)))
         # Receive too much
         @test_throws gRPCServiceCallException grpc_sync_request(client, TestRequest(1024, zeros(UInt64, 1)))
-    end
+    # end
 
-    @testset "Async Channels" begin 
-        client = TestService_TestRPC_Client("localhost", 8001)
+    # @testset "Async Channels" begin 
+        client = TestService_TestRPC_Client(_TEST_HOST, _TEST_PORT)
 
         channel = Channel{gRPCAsyncChannelResponse{TestResponse}}(1000)
         for i in 1:1000
@@ -117,12 +137,12 @@ include("gen/test/test_pb.jl")
             !isnothing(r.ex) && throw(r.ex)
             @test r.index == length(r.response.data)
         end
-    end
+    # end
     
-    @testset "Response Streaming" begin 
+    # @testset "Response Streaming" begin 
         N = 16
 
-        client = TestService_TestServerStreamRPC_Client("localhost", 8001)
+        client = TestService_TestServerStreamRPC_Client(_TEST_HOST, _TEST_PORT)
 
         response_c = Channel{TestResponse}(N)
 
@@ -136,11 +156,11 @@ include("gen/test/test_pb.jl")
         end
 
         grpc_async_await(req)
-    end
+    # end
 
-    @testset "Request Streaming" begin 
+    # @testset "Request Streaming" begin 
         N = 16
-        client = TestService_TestClientStreamRPC_Client("localhost", 8001)
+        client = TestService_TestClientStreamRPC_Client(_TEST_HOST, _TEST_PORT)
         request_c = Channel{TestRequest}(N)
 
         request = grpc_async_request(client, request_c)
@@ -156,11 +176,11 @@ include("gen/test/test_pb.jl")
         for i in 1:N
             @test response.data[i] == i
         end
-    end
+    # end
 
-    @testset "Bidirectional Streaming" begin 
+    # @testset "Bidirectional Streaming" begin 
         N = 16
-        client = TestService_TestBidirectionalStreamRPC_Client("localhost", 8001)
+        client = TestService_TestBidirectionalStreamRPC_Client(_TEST_HOST, _TEST_PORT)
 
         request_c = Channel{TestRequest}(N)
         response_c = Channel{TestResponse}(N)
@@ -179,6 +199,7 @@ include("gen/test/test_pb.jl")
 
         close(request_c)
         grpc_async_await(req)
-    end
+    # end
 
+    grpc_shutdown()
 end

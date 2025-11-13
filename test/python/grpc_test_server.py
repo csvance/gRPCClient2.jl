@@ -7,6 +7,7 @@ import grpc
 import test_pb2
 import test_pb2_grpc
 import sys
+import os
 
 class TestServiceServicer(test_pb2_grpc.TestServiceServicer):
     def __init__(self, public: bool = False):
@@ -81,11 +82,20 @@ def serve(public: bool = False):
         logging.info("(len(response.data) will always be 1)")
         server.add_insecure_port(bind_address)
     else:
-        bind_address = "127.0.0.1:8001"
+        host = '127.0.0.1' if 'GRPC_TEST_SERVER_HOST' not in os.environ else os.environ['GRPC_TEST_SERVER_HOST']
+        port = 8001 if 'GRPC_TEST_SERVER_PORT' not in os.environ else int(os.environ['GRPC_TEST_SERVER_PORT'])
+        bind_address = f"{host}:{port}"
         logging.info("Listening on %s in test mode" % bind_address)
         server.add_insecure_port(bind_address)
 
     server.start()
+
+    if os.path.exists('/test/.healthcheck'):
+        try:
+            open('/test/.healthy', 'w')
+        except:
+            pass
+
     server.wait_for_termination()
 
 
