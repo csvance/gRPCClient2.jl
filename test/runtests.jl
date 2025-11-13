@@ -29,7 +29,7 @@ include("gen/test/test_pb.jl")
     # Initialize the global gRPCCURL structure
     grpc_init()
 
-    @testset "@async varying request/response" begin
+    # @testset "@async varying request/response" begin
         client = TestService_TestRPC_Client(_TEST_HOST, _TEST_PORT)
 
         requests = Vector{gRPCRequest}()
@@ -46,9 +46,9 @@ include("gen/test/test_pb.jl")
                 @test di == dv
             end
         end
-    end
+    # end
 
-    @testset "@async small request/response" begin 
+    # @testset "@async small request/response" begin 
         client = TestService_TestRPC_Client(_TEST_HOST, _TEST_PORT)
 
         requests = Vector{gRPCRequest}()
@@ -62,9 +62,9 @@ include("gen/test/test_pb.jl")
             @test length(response.data) == 1
             @test response.data[1] == 1
         end
-    end 
+    # end 
 
-    @testset "@async big request/response" begin 
+    # @testset "@async big request/response" begin 
         client = TestService_TestRPC_Client(_TEST_HOST, _TEST_PORT)
 
         requests = Vector{gRPCRequest}()
@@ -78,9 +78,9 @@ include("gen/test/test_pb.jl")
             response = grpc_async_await(client, request)
             @test length(response.data) == 64
         end
-    end 
+    # end 
 
-    @testset "Threads.@spawn small request/response" begin
+    # @testset "Threads.@spawn small request/response" begin
         client = TestService_TestRPC_Client(_TEST_HOST, _TEST_PORT)
 
         responses = [TestResponse(Vector{UInt64}()) for _ in 1:1000]
@@ -94,9 +94,9 @@ include("gen/test/test_pb.jl")
             @test length(response.data) == 1
             @test response.data[1] == 1
         end
-    end
+    # end
 
-    @testset "Threads.@spawn varying request/response" begin
+    # @testset "Threads.@spawn varying request/response" begin
         client = TestService_TestRPC_Client(_TEST_HOST, _TEST_PORT)
 
         responses = [TestResponse(Vector{UInt64}()) for _ in 1:1000]
@@ -112,9 +112,9 @@ include("gen/test/test_pb.jl")
                 @test di == dv
             end
         end
-    end
+    # end
 
-    @testset "Max Message Size" begin 
+    # @testset "Max Message Size" begin 
         # Create a client with much more restictive max message lengths
         client = TestService_TestRPC_Client(_TEST_HOST, _TEST_PORT; max_send_message_length=1024, max_recieve_message_length=1024)
 
@@ -122,9 +122,9 @@ include("gen/test/test_pb.jl")
         @test_throws gRPCServiceCallException grpc_sync_request(client, TestRequest(1, zeros(UInt64, 1024)))
         # Receive too much
         @test_throws gRPCServiceCallException grpc_sync_request(client, TestRequest(1024, zeros(UInt64, 1)))
-    end
+    # end
 
-    @testset "Async Channels" begin 
+    # @testset "Async Channels" begin 
         client = TestService_TestRPC_Client(_TEST_HOST, _TEST_PORT)
 
         channel = Channel{gRPCAsyncChannelResponse{TestResponse}}(1000)
@@ -137,9 +137,9 @@ include("gen/test/test_pb.jl")
             !isnothing(r.ex) && throw(r.ex)
             @test r.index == length(r.response.data)
         end
-    end
+    # end
     
-    @testset "Response Streaming" begin 
+    # @testset "Response Streaming" begin 
         N = 16
 
         client = TestService_TestServerStreamRPC_Client(_TEST_HOST, _TEST_PORT)
@@ -156,9 +156,9 @@ include("gen/test/test_pb.jl")
         end
 
         grpc_async_await(req)
-    end
+    # end
 
-    @testset "Request Streaming" begin 
+    # @testset "Request Streaming" begin 
         N = 16
         client = TestService_TestClientStreamRPC_Client(_TEST_HOST, _TEST_PORT)
         request_c = Channel{TestRequest}(N)
@@ -176,9 +176,9 @@ include("gen/test/test_pb.jl")
         for i in 1:N
             @test response.data[i] == i
         end
-    end
+    # end
 
-    @testset "Bidirectional Streaming" begin 
+    # @testset "Bidirectional Streaming" begin 
         N = 16
         client = TestService_TestBidirectionalStreamRPC_Client(_TEST_HOST, _TEST_PORT)
 
@@ -199,6 +199,7 @@ include("gen/test/test_pb.jl")
 
         close(request_c)
         grpc_async_await(req)
-    end
+    # end
 
+    grpc_shutdown()
 end
