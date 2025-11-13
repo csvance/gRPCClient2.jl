@@ -13,7 +13,7 @@ PrecompileTools = "aea7be01-6a6a-4083-8856-8a6e6704d82a"
 ProtoBuf = "3349acd9-ac6a-5e09-bcdb-63829b23a429"
 
 [compat]
-FileWatching = "1.11.0"
+FileWatching = ">= 1.10.10"
 LibCURL = "0.6.4"
 PrecompileTools = "1.3.3"
 ProtoBuf = "1.2.0"
