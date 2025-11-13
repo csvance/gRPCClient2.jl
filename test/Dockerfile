@@ -23,5 +23,7 @@ COPY python/uv.lock /test
 RUN cd /test && uv sync
 
 COPY python/entrypoint.sh /test
+RUN touch /test/.healthcheck
 
 ENTRYPOINT /test/entrypoint.sh
+HEALTHCHECK --interval=1s CMD bash -c '[ -e /test/.healthy ]' || exit 1

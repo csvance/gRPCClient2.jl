@@ -7,6 +7,7 @@ import grpc
 import test_pb2
 import test_pb2_grpc
 import sys
+import os
 
 class TestServiceServicer(test_pb2_grpc.TestServiceServicer):
     def __init__(self, public: bool = False):
@@ -86,6 +87,13 @@ def serve(public: bool = False):
         server.add_insecure_port(bind_address)
 
     server.start()
+
+    if os.path.exists('/test/.healthcheck'):
+        try:
+            open('/test/.healthy', 'w')
+        except:
+            pass
+            
     server.wait_for_termination()
 
 
