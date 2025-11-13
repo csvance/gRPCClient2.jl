@@ -1,25 +1,41 @@
 const _grpc = gRPCCURL()
 
 """
+    grpc_global_handle()
+
+Returns the global `gRPCCURL` state which contains a libCURL multi handle. By default all gRPC clients use this multi in order to ensure that HTTP/2 multiplexing happens where possible.
+"""
+grpc_global_handle() = _grpc
+
+"""
     grpc_init()
 
-Initializes the global `gRPCCURL` state. This should be called once before making gRPC calls. There is no harm in calling this more than once (ie by different packages/dependencies)
+Initializes the `gRPCCURL` state. This should be called once before making gRPC calls. There is no harm in calling this more than once (ie by different packages/dependencies)
+Unless specifying a gRPCCURL state the default one provided by grpc_global_handle() is used. Each gRPCCURL state has its own connection pool and request semaphore.
+
+```julia 
+grpc_myapp = gRPCCURL()
+grpc_init(grpc_myapp)
+
+client = TestService_TestRPC_Client("172.238.177.88", 8001; grpc=grpc_myapp)
+
+# Make some gRPC calls 
+
+# To shut down / clean everything up after
+grpc_shutdown(grpc_myapp)
+```
 """
-grpc_init() = open(_grpc)
+grpc_init() = open(grpc_global_handle())
+grpc_init(grpc_curl::gRPCCURL) = open(grpc_curl)
 
 """
     grpc_shutdown()
 
 Shuts down the global `gRPCCURL` state. This neatly cleans up all active connections and requests. Useful for calling during development with Revise.
 """
-grpc_shutdown() = close(_grpc)
+grpc_shutdown() = close(grpc_global_handle())
+grpc_shutdown(grpc_curl::gRPCCURL) = close(grpc_curl)
 
-"""
-    grpc_global_handle()
-
-Returns the global `gRPCCURL` state which contains a libCURL multi handle. By default all gRPC functions use this multi in order to ensure that HTTP/2 multiplexing happens where possible.
-"""
-grpc_global_handle() = _grpc
 
 struct gRPCClient{TRequest,SRequest,TResponse,SResponse}
     grpc::gRPCCURL
