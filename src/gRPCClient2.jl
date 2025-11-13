@@ -157,6 +157,8 @@ export gRPCServiceCallException
         test_response = take!(response_c)
         close(request_c)
         grpc_async_await(req)
+
+        grpc_shutdown()
     end
 end
 
