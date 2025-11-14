@@ -527,7 +527,7 @@ function socket_callback(
             watcher = CURLWatcher(sock, FDWatcher(OS_HANDLE(sock), readable, writable))
             grpc.watchers[sock] = watcher
 
-            task = @spawn begin
+            task = @async begin
                 while watcher.running && grpc.running
                     # Watcher configuration might be changed, wait until its safe to wait on the watcher
                     wait(watcher.ready)
