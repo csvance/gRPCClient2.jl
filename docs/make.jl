@@ -2,7 +2,7 @@ using Documenter
 using gRPCClient2
 
 makedocs(
-    sitename = "gRPCClient2",
+    sitename = "gRPCClient2.jl",
     format = Documenter.HTML(),
     modules = [gRPCClient2]
 )

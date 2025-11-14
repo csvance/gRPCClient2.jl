@@ -1,6 +1,7 @@
 # gRPCClient2.jl
 
 [![License][license-img]][license-url]
+[![Documentation][doc-stable-img]][doc-stable-url]
 [![Documentation][doc-dev-img]][doc-dev-url]
 [![CI](https://github.com/csvance/gRPCClient2.jl/actions/workflows/ci.yml/badge.svg)](https://github.com/csvance/gRPCClient2.jl/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/github/csvance/gRPCClient2.jl/graph/badge.svg?token=2SUFGIE336)](https://codecov.io/github/csvance/gRPCClient2.jl)
@@ -83,8 +84,11 @@ These run forever, and are useful to help identify any stability issues or resou
 
 This package is essentially a rewrite of [gRPCClient.jl](https://github.com/JuliaComputing/gRPCClient.jl) that uses a heavily modified version of [Downloads.jl](https://github.com/JuliaLang/Downloads.jl) to interface with [LibCURL.jl](https://github.com/JuliaWeb/LibCURL.jl). Without the above packages to build ontop of this effort would have been a far more signifigant undertaking, so thank you to all of the authors and maintainers who made this possible.
 
-[license-url]: ./LICENSE.md
+[license-url]: ./LICENSE
 [license-img]: http://img.shields.io/badge/license-MIT-brightgreen.svg?style=flat
 
 [doc-dev-img]: https://img.shields.io/badge/docs-dev-blue.svg
 [doc-dev-url]: https://csvance.github.io/gRPCClient2.jl/dev/
+
+[doc-stable-img]: https://img.shields.io/badge/docs-stable-blue.svg
+[doc-stable-url]: https://csvance.github.io/gRPCClient2.jl/stable/
