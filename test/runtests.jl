@@ -1,6 +1,7 @@
 using Test 
 using ProtoBuf 
 using gRPCClient2
+using Base.Threads
 
 
 function _get_test_host()
@@ -26,6 +27,7 @@ const _TEST_PORT = _get_test_port()
 include("gen/test/test_pb.jl")
 
 @testset "gRPCClient2.jl" begin
+
     # Initialize the global gRPCCURL structure
     grpc_init()
 
@@ -200,6 +202,19 @@ include("gen/test/test_pb.jl")
         close(request_c)
         grpc_async_await(req)
     # end
+
+    # @testset "Don't Stick User Tasks" 
+        client = TestService_TestRPC_Client(_TEST_HOST, _TEST_PORT)
+
+        task = @sync begin 
+            @spawn begin 
+                grpc_sync_request(client, TestRequest(1, zeros(UInt64, 1)))
+            end
+        end 
+
+        @test !task.sticky
+    # end
+
 
     grpc_shutdown()
 end
