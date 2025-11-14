@@ -20,13 +20,16 @@ function write_callback(
         n = size * count
         buf = unsafe_wrap(Array, convert(Ptr{UInt8}, data), (n,))
 
-        handled_n_bytes = try
-            # Handles all of the response stream data 
-            handle_write(req, buf)
-        catch ex
+        handled_n_bytes_total = 0
+        try 
+            while !isnothing(buf) && handled_n_bytes_total < n
+                handled_n_bytes, buf = handle_write(req, buf)
+                handled_n_bytes_total += handled_n_bytes 
+                handled_n_bytes == 0 && break
+            end
+        catch ex 
             # Eat InvalidStateException raised on put! to closed channel
             !isa(ex, InvalidStateException) && rethrow(ex)
-            n
         end
 
         # If there was an exception handle it 
@@ -34,15 +37,15 @@ function write_callback(
 
         # Check that we handled the correct number of bytes
         # If there was no exception in handle_write this should always match 
-        if handled_n_bytes != n
+        if handled_n_bytes_total != n
             req.ex = gRPCServiceCallException(
                 GRPC_INTERNAL,
-                "Recieved $(n) bytes from curl but only handled $(handled_n_bytes)",
+                "Recieved $(n) bytes from curl but only handled $(handled_n_bytes_total)",
             )
             return typemax(Csize_t)
         end
 
-        return handled_n_bytes
+        return handled_n_bytes_total
     catch err
         @async @error("write_callback: unexpected error", err = err, maxlog = 1_000)
         return typemax(Csize_t)
@@ -326,13 +329,13 @@ Base.wait(req::gRPCRequest) = wait(req.ready)
 Base.reset(req::gRPCRequest) = reset(req.ready)
 
 
-function handle_write(req::gRPCRequest, buf::Vector{UInt8})
+function handle_write(req::gRPCRequest, buf::Vector{UInt8})::Tuple{Int64, Union{Nothing, Vector{UInt8}}}
     if !req.response_read_header
         header_bytes_left = GRPC_HEADER_SIZE - req.response.size
 
         if length(buf) < header_bytes_left
             # Not enough data yet to read the entire header
-            return write(req.response, buf)
+            return write(req.response, buf), nothing
         else
 
             buf_header = buf[1:header_bytes_left]
@@ -349,27 +352,28 @@ function handle_write(req::gRPCRequest, buf::Vector{UInt8})
                     "Response was compressed but compression is not currently supported.",
                 )
                 notify(req.ready)
-                return n
+                return n, nothing
             elseif req.response_length > req.max_recieve_message_length
                 req.ex = gRPCServiceCallException(
                     GRPC_RESOURCE_EXHAUSTED,
                     "length-prefix longer than max_recieve_message_length: $(req.response_length) > $(req.max_recieve_message_length)",
                 )
                 notify(req.ready)
-                return n
+                return n, nothing
             end
 
             req.response_read_header = true
             seekstart(req.response)
             truncate(req.response, 0)
 
+            buf_leftover = nothing 
+
             if (leftover_bytes = length(buf) - header_bytes_left) > 0
                 # Handle the remaining data
                 buf_leftover = unsafe_wrap(Array, pointer(buf) + n, (leftover_bytes,))
-                n += handle_write(req, buf_leftover)
             end
 
-            return n
+            return n, buf_leftover
         end
     end
 
@@ -377,7 +381,7 @@ function handle_write(req::gRPCRequest, buf::Vector{UInt8})
     message_bytes_left = req.response_length - req.response.size
 
     # Not enough bytes to complete the message
-    length(buf) < message_bytes_left && return write(req.response, buf)
+    length(buf) < message_bytes_left && return write(req.response, buf), nothing
 
     if isstreaming_response(req)
         # Write just enough to complete the message
@@ -399,12 +403,12 @@ function handle_write(req::gRPCRequest, buf::Vector{UInt8})
         # Handle the remaining data
         leftover_bytes = message_bytes_left - n
 
+        buf_leftover = nothing 
         if leftover_bytes > 0
             buf_leftover = unsafe_wrap(Array, pointer(buf) + n, (length(leftover_bytes),))
-            n += handle_write(req, buf_leftover)
         end
 
-        return n
+        return n, buf_leftover
     else
         # We only expect a single response for non-streaming RPC
         if length(buf) > message_bytes_left
@@ -413,13 +417,13 @@ function handle_write(req::gRPCRequest, buf::Vector{UInt8})
                 "Response was longer than declared in length-prefix.",
             )
             notify(req.ready)
-            return 0
+            return 0, nothing
         end
 
         n = write(req.response, buf)
         seekstart(req.response)
 
-        return n
+        return n, nothing
     end
 
 end
