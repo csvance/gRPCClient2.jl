@@ -47,7 +47,7 @@ function write_callback(
 
         return handled_n_bytes_total
     catch err
-        @async @error("write_callback: unexpected error", err = err, maxlog = 1_000)
+        @error("write_callback: unexpected error", err = err, maxlog = 1_000)
         return typemax(Csize_t)
     end
 end
@@ -93,7 +93,7 @@ function read_callback(
 
         return n_min
     catch err
-        @async @error("read_callback: unexpected error", err = err, maxlog = 1_000)
+        @error("read_callback: unexpected error", err = err, maxlog = 1_000)
         return CURL_READFUNC_ABORT
     end
 end
@@ -123,7 +123,7 @@ function header_callback(
 
         return n
     catch err
-        @async @error("header_callback: unexpected error", err = err, maxlog = 1_000)
+        @error("header_callback: unexpected error", err = err, maxlog = 1_000)
         return typemax(Csize_t)
     end
 end
@@ -453,7 +453,7 @@ function timer_callback(multi_h::Ptr{Cvoid}, timeout_ms::Clong, grpc_p::Ptr{Cvoi
 
         return 0
     catch err
-        @async @error("timer_callback: unexpected error", err = err, maxlog = 1_000)
+        @error("timer_callback: unexpected error", err = err, maxlog = 1_000)
         return -1
     end
 end
@@ -491,7 +491,7 @@ function socket_callback(
 )::Cint
     try
         if action ∉ (CURL_POLL_IN, CURL_POLL_OUT, CURL_POLL_INOUT, CURL_POLL_REMOVE)
-            @async @error("socket_callback: unexpected action", action, maxlog = 1_000)
+            @error("socket_callback: unexpected action", action, maxlog = 1_000)
             return -1
         end
 
@@ -527,7 +527,7 @@ function socket_callback(
             watcher = CURLWatcher(sock, FDWatcher(OS_HANDLE(sock), readable, writable))
             grpc.watchers[sock] = watcher
 
-            task = @async begin
+            task = @spawn begin
                 while watcher.running && grpc.running
                     # Watcher configuration might be changed, wait until its safe to wait on the watcher
                     wait(watcher.ready)
@@ -582,7 +582,7 @@ function socket_callback(
 
         return 0
     catch err
-        @async @error("socket_callback: unexpected error", err = err, maxlog = 1_000)
+        @error("socket_callback: unexpected error", err = err, maxlog = 1_000)
         return -1
     end
 end
@@ -718,7 +718,7 @@ function check_multi_info(grpc::gRPCCURL)
             # Allow a new request now that this one is complete
             release(grpc.sem)
         else
-            @async @error("curl_multi_info_read: unknown message", message, maxlog = 1_000)
+            @error("curl_multi_info_read: unknown message", message, maxlog = 1_000)
         end
     end
 end
