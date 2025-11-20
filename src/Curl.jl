@@ -8,6 +8,17 @@ let m = match(r"^libcurl/(\d+\.\d+\.\d+)\b", CURL_VERSION_STR)
 end
 
 
+struct NoChannel end
+const NOCHANNEL = NoChannel()
+
+isopen(req::NoChannel) = false
+isempty(req::NoChannel) = true 
+put!(req::NoChannel, ::IOBuffer) = false
+take!(req::NoChannel) = nothing
+close(req::NoChannel) = false
+
+
+
 function write_callback(
     data::Ptr{Cchar},
     size::Csize_t,
@@ -115,10 +126,16 @@ function header_callback(
         header = unsafe_string(data, n)
         header = strip(header)
 
-        if (m_grpc_status = match(regex_grpc_status, header)) !== nothing
-            req.grpc_status = parse(UInt64, m_grpc_status.captures[1])
-        elseif (m_grpc_message = match(regex_grpc_message, header)) !== nothing
-            req.grpc_message = m_grpc_message.captures[1]
+        if (m_grpc_status = match(regex_grpc_status, header)) isa RegexMatch
+            capture = m_grpc_status.captures[1]
+            if capture !== nothing
+                req.grpc_status = parse(UInt64, capture)
+            end
+        elseif (m_grpc_message = match(regex_grpc_message, header)) isa RegexMatch
+            capture = m_grpc_message.captures[1]
+            if capture !== nothing
+                req.grpc_message = capture
+            end
         end
 
         return n
@@ -127,7 +144,6 @@ function header_callback(
         return typemax(Csize_t)
     end
 end
-
 
 
 mutable struct gRPCRequest
@@ -152,8 +168,8 @@ mutable struct gRPCRequest
     response::IOBuffer
 
     # These are only used when the request or response is streaming
-    request_c::Union{Nothing,Channel{IOBuffer}}
-    response_c::Union{Nothing,Channel{IOBuffer}}
+    request_c::Union{Channel{IOBuffer}, NoChannel}
+    response_c::Union{Channel{IOBuffer}, NoChannel}
 
     # The task making the request can block on this until the request is complete
     ready::Event
@@ -186,8 +202,8 @@ mutable struct gRPCRequest
         url,
         request::IOBuffer,
         response::IOBuffer,
-        request_c::Union{Nothing,Channel{IOBuffer}},
-        response_c::Union{Nothing,Channel{IOBuffer}};
+        request_c::Union{Channel{IOBuffer}, NoChannel},
+        response_c::Union{Channel{IOBuffer}, NoChannel};
         deadline = 10,
         keepalive = 60,
         max_send_message_length = 4 * 1024 * 1024,
@@ -322,8 +338,12 @@ mutable struct gRPCRequest
     end
 end
 
-isstreaming_request(req::gRPCRequest) = !isnothing(req.request_c)
-isstreaming_response(req::gRPCRequest) = !isnothing(req.response_c)
+#isstreaming_request(req::gRPCRequest) = !isnothing(req.request_c)
+#isstreaming_response(req::gRPCRequest) = !isnothing(req.response_c)
+
+isstreaming_request(req::gRPCRequest) = !isa(req.request_c, NoChannel)
+isstreaming_response(req::gRPCRequest) = !isa(req.response_c, NoChannel)
+
 
 Base.wait(req::gRPCRequest) = wait(req.ready)
 Base.reset(req::gRPCRequest) = reset(req.ready)

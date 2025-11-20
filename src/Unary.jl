@@ -53,8 +53,8 @@ function grpc_async_request(
         url(client),
         request_buf,
         IOBuffer(),
-        nothing,
-        nothing;
+        NOCHANNEL,
+        NOCHANNEL;
         deadline = client.deadline,
         keepalive = client.keepalive,
         max_send_message_length = client.max_send_message_length,
@@ -123,8 +123,8 @@ function grpc_async_request(
         url(client),
         request_buf,
         IOBuffer(),
-        nothing,
-        nothing;
+        NOCHANNEL,
+        NOCHANNEL;
         deadline = client.deadline,
         keepalive = client.keepalive,
         max_send_message_length = client.max_send_message_length,

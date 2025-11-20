@@ -91,27 +91,28 @@ function grpc_async_stream_response(
 ) where {TResponse<:Any}
     try
         while isnothing(req.ex)
-            response_buf = take!(req.response_c)
-            response = decode(ProtoDecoder(response_buf), TResponse)
-            put!(channel, response)
+            response_buf = take!(req.response_c) 
+
+            if response_buf !== nothing
+                response = decode(ProtoDecoder(response_buf), TResponse)
+                put!(channel, response)
+            end
+
         end
     catch ex
         close(channel)
         close(req.response_c)
 
         if isa(ex, InvalidStateException)
-
-        elseif isa(ex, gRPCServiceCallException)
-            if isnothing(req.ex)
-                req.ex = ex
-                notify(req.ready)
-            end
+            # Nothing to do here, just exit
         else
             if isnothing(req.ex)
                 req.ex = ex
                 notify(req.ready)
             end
-            @error "grpc_async_stream_response: unexpected exception" exception = ex
+            if !isa(ex, gRPCServiceCallException)
+                @error "grpc_async_stream_response: unexpected exception" exception = ex
+            end
         end
 
     end
@@ -154,7 +155,7 @@ function grpc_async_request(
         IOBuffer(),
         IOBuffer(),
         Channel{IOBuffer}(16),
-        nothing;
+        NOCHANNEL;
         deadline = client.deadline,
         keepalive = client.keepalive,
         max_send_message_length = client.max_send_message_length,
@@ -210,7 +211,7 @@ function grpc_async_request(
         url(client),
         request_buf,
         IOBuffer(),
-        nothing,
+        NOCHANNEL,
         Channel{IOBuffer}(16);
         deadline = client.deadline,
         keepalive = client.keepalive,

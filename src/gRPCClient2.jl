@@ -10,6 +10,7 @@ using Base: OS_HANDLE
 using Base: Semaphore, acquire, release
 using Base.Threads
 
+import Base: isempty, isopen, put!, close, take!
 import Base.wait,
     Base.reset, Base.notify, Base.isreadable, Base.iswritable, Base.close, Base.open
 import ProtoBuf.CodeGenerators.ServiceType,
