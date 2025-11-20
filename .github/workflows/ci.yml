@@ -24,13 +24,16 @@ jobs:
           - ubuntu-latest
         arch:
           - x64
-    services:
-      grpc-test-server:
-        image: csvance4/grpc-test-server:latest
-        ports: 
-          - 8001:8001
     steps:
     - uses: actions/checkout@v5
+    - name: Install uv
+      uses: astral-sh/setup-uv@v6
+    - name: Set up Python
+      run: uv python install
+      working-directory: test/python
+    - name: Run Python gRPC Test Server 
+      run: uv run grpc_test_server.py test &
+      working-directory: test/python
     - uses: julia-actions/setup-julia@v1
       with:
         version: ${{ matrix.version }}
